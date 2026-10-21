@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Normal map maker</title>
+  <meta name="description" content="Make height, normal and specular maps from a photo. It all runs in your browser, so nothing is uploaded.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#080530">
+
+  <!-- Open Graph: replace USERNAME/REPO once GitHub Pages is live, and add assets/og-image.png (1200×630). -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Normal map maker">
+  <meta property="og:description" content="Height, normal and specular maps from a photo, in your browser. Free, no upload.">
+  <meta property="og:url" content="https://USERNAME.github.io/REPO/">
+  <meta property="og:image" content="https://USERNAME.github.io/REPO/assets/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- MDS (Mariana's Design System): tokens and base styles, then app styles. -->
+  <link rel="stylesheet" href="css/mds/styles.css">
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Pinned CDN versions so an upstream release can't break the site. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js"
+    }
+  }
+  </script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header class="menubar">
+    <span class="menubar-owner">Normal map maker</span>
+    <span class="menubar-status">Height, normal and specular maps from a photo. Nothing leaves your browser.</span>
+    <span class="menubar-spacer"></span>
+    <label class="btn accent sm" for="file-input">Open image</label>
+  </header>
+
+  <section class="window controls" aria-label="Settings">
+    <div class="titlebar"><span class="titlebar-dot"></span><span class="titlebar-title">Settings</span></div>
+    <div class="window-body" data-scroll>
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose an image">
+        <input type="file" id="file-input" accept="image/*" hidden>
+        <strong>Drop an image here</strong>
+        <span>or click to browse. You can also paste.</span>
+      </div>
+      <div class="samples" id="samples"><span class="meta">Samples</span></div>
+
+      <div id="control-groups"></div>
+
+      <details class="group" open>
+        <summary>Export</summary>
+        <label class="ctl">
+          <span class="ctl-label">Size</span>
+          <select id="export-size"></select>
+        </label>
+        <p id="size-warning" class="warn" hidden></p>
+        <div class="export-buttons">
+          <button class="btn ghost" data-export="height">Height</button>
+          <button class="btn ghost" data-export="normal">Normal</button>
+          <button class="btn ghost" data-export="spec" id="export-spec">Specular</button>
+          <button class="btn accent wide" data-export="all">Download all as .zip</button>
+        </div>
+      </details>
+
+      <button id="reset" class="btn ghost wide">Reset all settings</button>
+    </div>
+  </section>
+
+  <main class="window stage">
+    <div class="titlebar">
+      <span class="titlebar-dot"></span>
+      <span class="titlebar-title">Preview</span>
+      <span class="titlebar-meta" id="status">Loading…</span>
+    </div>
+    <div class="stage-toolbar" id="stage-controls"></div>
+    <div id="viewport" class="viewport">
+      <p class="viewport-hint">Move the pointer over the preview to move the light</p>
+    </div>
+  </main>
+
+  <section class="window maps" aria-label="Maps">
+    <div class="titlebar"><span class="titlebar-dot"></span><span class="titlebar-title">Maps</span><span class="titlebar-meta">4 items</span></div>
+    <div class="window-body maps-body" data-scroll>
+      <figure class="map" data-map="source" tabindex="0" role="button"><div class="slot"></div><figcaption>Source</figcaption></figure>
+      <figure class="map" data-map="height" tabindex="0" role="button"><div class="slot"></div><figcaption>Height</figcaption></figure>
+      <figure class="map" data-map="normal" tabindex="0" role="button"><div class="slot"></div><figcaption>Normal</figcaption></figure>
+      <figure class="map" data-map="spec" tabindex="0" role="button"><div class="slot"></div><figcaption id="spec-caption">Specular</figcaption></figure>
+    </div>
+  </section>
+
+  <dialog id="lightbox">
+    <div class="titlebar">
+      <span class="titlebar-dot"></span>
+      <span class="titlebar-title caption"></span>
+      <span class="menubar-spacer"></span>
+      <form method="dialog"><button class="icon-btn close" aria-label="Close" title="Close">×</button></form>
+    </div>
+    <div class="slot"></div>
+  </dialog>
+
+  <div id="busy" hidden><div class="spinner"></div><p id="busy-text">Processing…</p></div>
+  <div id="drop-overlay" hidden><p>Drop to open the image</p></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
