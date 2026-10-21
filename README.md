@@ -1,4 +1,4 @@
-# Normal Map Maker
+# PBR Texture Generator
 
 Make **height**, **normal**, **specular/roughness** and **ORM** (PBR) maps from a photo, right in the browser. Nothing is uploaded: all processing happens on your device.
 

@@ -1,5 +1,6 @@
 // three.js preview: a lit plane or sphere with the generated maps applied.
 // The pointer moves a point light; when idle the light orbits slowly.
+// Wheel or pinch zooms towards the pointer; double-click resets the zoom.
 
 export async function createPreview(container) {
   const THREE = await import('three');
@@ -42,22 +43,102 @@ export async function createPreview(container) {
   let pointerInside = false;
   let orbitAngle = Math.PI / 4;
 
-  function onPointer(e) {
+  const toNdc = (e, out = new THREE.Vector2()) => {
     const r = el.getBoundingClientRect();
-    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    return out.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  };
+
+  function onPointer(e) {
+    toNdc(e, ndc);
     raycaster.setFromCamera(ndc, camera);
     if (raycaster.ray.intersectPlane(groundPlane, hit)) target.set(hit.x, hit.y);
     pointerInside = true;
   }
-  el.addEventListener('pointermove', onPointer);
+
+  // ---- Zoom ----
+  // zoom = 1 fits the object in view. The camera looks straight down -z and
+  // pans in x/y; `zoomTarget`/`panTarget` are eased towards each frame.
+  const MIN_ZOOM = 0.5, MAX_ZOOM = 12;
+  let zoom = 1, zoomTarget = 1;
+  const pan = new THREE.Vector2(), panTarget = new THREE.Vector2();
+  let baseDist = 4;
+  let onZoomChange = () => {};
+
+  // Half-size of the visible area at the object's front surface, per unit of ndc.
+  const viewHalf = (z) => {
+    const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const d = baseDist / z;
+    return [d * t * camera.aspect, d * t];
+  };
+
+  function clampPan(v, z) {
+    const [pw, ph] = objectSize();
+    const k = Math.max(0, 1 - 1 / z);
+    v.x = THREE.MathUtils.clamp(v.x, -pw / 2 * k, pw / 2 * k);
+    v.y = THREE.MathUtils.clamp(v.y, -ph / 2 * k, ph / 2 * k);
+    return v;
+  }
+
+  // Zoom by `factor`, keeping the point under `at` (ndc) fixed.
+  function zoomBy(factor, at = new THREE.Vector2()) {
+    const next = THREE.MathUtils.clamp(zoomTarget * factor, MIN_ZOOM, MAX_ZOOM);
+    const [hx, hy] = viewHalf(zoomTarget);
+    const [nx, ny] = viewHalf(next);
+    const px = panTarget.x + at.x * hx, py = panTarget.y + at.y * hy;
+    panTarget.set(px - at.x * nx, py - at.y * ny);
+    zoomTarget = next;
+    clampPan(panTarget, zoomTarget);
+    onZoomChange(zoomTarget);
+  }
+
+  function resetZoom() {
+    zoomTarget = 1;
+    panTarget.set(0, 0);
+    onZoomChange(zoomTarget);
+  }
+
+  el.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    // Trackpad pinch arrives as a wheel event with ctrlKey and small deltas.
+    const speed = e.ctrlKey ? 0.01 : 0.0015;
+    const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+    zoomBy(Math.exp(-delta * speed), toNdc(e));
+  }, { passive: false });
+  el.addEventListener('dblclick', resetZoom);
+
+  // Touch pinch: two active pointers.
+  const touches = new Map();
+  let pinchDist = 0;
+  const pinchInfo = () => {
+    const [a, b] = [...touches.values()];
+    return { dist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+      mid: { clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 } };
+  };
+
+  el.addEventListener('pointermove', (e) => {
+    if (touches.has(e.pointerId)) touches.set(e.pointerId, e);
+    if (touches.size === 2) {
+      const { dist, mid } = pinchInfo();
+      if (pinchDist > 0) zoomBy(dist / pinchDist, toNdc(mid));
+      pinchDist = dist;
+      return;
+    }
+    onPointer(e);
+  });
   el.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') touches.set(e.pointerId, e);
+    if (touches.size === 2) { pinchDist = pinchInfo().dist; return; }
     onPointer(e);
     el.setPointerCapture?.(e.pointerId);
   });
   el.addEventListener('pointerleave', () => { pointerInside = false; orbitAngle = Math.atan2(current.y, current.x); });
-  el.addEventListener('pointerup', (e) => {
+  const endTouch = (e) => {
+    touches.delete(e.pointerId);
+    pinchDist = 0;
     if (e.pointerType !== 'mouse') { pointerInside = false; orbitAngle = Math.atan2(current.y, current.x); }
-  });
+  };
+  el.addEventListener('pointerup', endTouch);
+  el.addEventListener('pointercancel', endTouch);
 
   // ---- Layout ----
   function objectSize() {
@@ -74,10 +155,16 @@ export async function createPreview(container) {
     plane.scale.set(pw / 2, ph / 2, 1);
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const fill = 0.88;
-    const dist = Math.max(ph / 2 / (t * fill), pw / 2 / (t * camera.aspect * fill));
-    camera.position.set(0, 0, dist + (opts.shape === 'sphere' ? 1 : 0));
-    camera.lookAt(0, 0, 0);
+    baseDist = Math.max(ph / 2 / (t * fill), pw / 2 / (t * camera.aspect * fill));
     camera.updateProjectionMatrix();
+    placeCamera();
+  }
+
+  // The object's front surface sits at z = 0 (plane) or z = 1 (sphere).
+  function placeCamera() {
+    const front = opts.shape === 'sphere' ? 1 : 0;
+    camera.position.set(pan.x, pan.y, front + baseDist / zoom);
+    camera.lookAt(pan.x, pan.y, 0);
   }
   new ResizeObserver(layout).observe(container);
 
@@ -119,6 +206,10 @@ export async function createPreview(container) {
     light.position.set(current.x, current.y, z);
     marker.position.copy(light.position);
     if (opts.shape === 'sphere') sphere.rotation.y += dt * 0.12;
+    const ease = 1 - Math.pow(0.000005, dt);
+    zoom += (zoomTarget - zoom) * ease;
+    pan.lerp(panTarget, ease);
+    placeCamera();
     renderer.render(scene, camera);
   });
 
@@ -152,7 +243,12 @@ export async function createPreview(container) {
       plane.visible = opts.shape === 'plane';
       sphere.visible = opts.shape === 'sphere';
       if (texChanged) applyTextureOptions();
-      if (shapeChanged) layout();
+      if (shapeChanged) { resetZoom(); layout(); }
     },
+    zoomIn: () => zoomBy(1.25),
+    zoomOut: () => zoomBy(1 / 1.25),
+    resetZoom,
+    // `fn(zoom)` is called whenever the zoom level changes (1 = fit).
+    onZoom(fn) { onZoomChange = fn; fn(zoomTarget); },
   };
 }

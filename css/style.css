@@ -310,6 +310,36 @@ select:focus-visible { outline: none; border-color: var(--accent-line); }
   pointer-events: none;
   white-space: nowrap;
 }
+/* Zoom: − / level / + in the preview's top-right corner, tooltip surface. */
+.zoom-controls {
+  position: absolute;
+  top: var(--space-12);
+  right: var(--space-12);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-inner);
+  background: var(--surface-tooltip);
+  border: 1px solid var(--border-tooltip);
+  box-shadow: var(--shadow-tooltip);
+}
+.zoom-controls[hidden] { display: none; }
+.zoom-level {
+  min-width: 48px;
+  height: var(--control-size);
+  padding: 0 var(--space-6);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  font: var(--type-meta);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background var(--dur-hover) ease, color var(--dur-hover) ease;
+}
+.zoom-level:hover, .zoom-level:focus-visible { background: var(--surface-control-hover); color: var(--text-primary); outline: none; }
+
 .viewport-error { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: var(--space-24); text-align: center; color: var(--text-subtle); }
 
 /* ---------- Map cards ---------- */

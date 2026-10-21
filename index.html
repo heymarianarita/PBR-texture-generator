@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Normal map maker</title>
+  <title>PBR Texture Generator</title>
   <meta name="description" content="Make height, normal, specular and PBR (ORM) maps from a photo. It all runs in your browser, so nothing is uploaded.">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#080530">
 
   <!-- Open Graph: replace USERNAME/REPO once GitHub Pages is live, and add assets/og-image.png (1200×630). -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Normal map maker">
+  <meta property="og:title" content="PBR Texture Generator">
   <meta property="og:description" content="Height, normal and specular maps from a photo, in your browser. Free, no upload.">
   <meta property="og:url" content="https://USERNAME.github.io/REPO/">
   <meta property="og:image" content="https://USERNAME.github.io/REPO/assets/og-image.png">
@@ -36,7 +36,7 @@
 </head>
 <body>
   <header class="menubar">
-    <span class="menubar-owner">Normal map maker</span>
+    <span class="menubar-owner">PBR Texture Generator</span>
     <span class="menubar-status">Height, normal and specular maps from a photo. Nothing leaves your browser.</span>
     <span class="menubar-spacer"></span>
     <label class="btn accent sm" for="file-input">Open image</label>
@@ -66,7 +66,12 @@
     </div>
     <div class="stage-toolbar" id="stage-controls"></div>
     <div id="viewport" class="viewport">
-      <p class="viewport-hint">Move the pointer over the preview to move the light</p>
+      <div class="zoom-controls" id="zoom-controls" hidden>
+        <button class="icon-btn" id="zoom-out" aria-label="Zoom out" title="Zoom out">−</button>
+        <button class="zoom-level" id="zoom-level" title="Reset zoom">100%</button>
+        <button class="icon-btn" id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
+      </div>
+      <p class="viewport-hint">Move the pointer to move the light · scroll or pinch to zoom</p>
     </div>
   </main>
 

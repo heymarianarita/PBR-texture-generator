@@ -53,7 +53,7 @@ export function makeGltf(name, images, aspect) {
 
   const FLOAT = 5126, USHORT = 5123, ARRAY_BUFFER = 34962, ELEMENT_ARRAY_BUFFER = 34963;
   const gltf = {
-    asset: { version: '2.0', generator: 'Normal map maker' },
+    asset: { version: '2.0', generator: 'PBR Texture Generator' },
     scene: 0,
     scenes: [{ nodes: [0] }],
     nodes: [{ name, mesh: 0 }],

@@ -598,6 +598,12 @@ async function initPreview() {
     const { createPreview } = await import('./preview.js');
     preview = await createPreview(viewport);
     preview.setOptions(previewOptions());
+    const level = $('#zoom-level');
+    preview.onZoom((z) => { level.textContent = `${Math.round(z * 100)}%`; });
+    $('#zoom-in').addEventListener('click', () => preview.zoomIn());
+    $('#zoom-out').addEventListener('click', () => preview.zoomOut());
+    level.addEventListener('click', () => preview.resetZoom());
+    $('#zoom-controls').hidden = false;
     if (state.img) {
       preview.setSource(previewSources());
     }
