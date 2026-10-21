@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Normal map maker</title>
-  <meta name="description" content="Make height, normal and specular maps from a photo. It all runs in your browser, so nothing is uploaded.">
+  <meta name="description" content="Make height, normal, specular and PBR (ORM) maps from a photo. It all runs in your browser, so nothing is uploaded.">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#080530">
 
@@ -54,21 +54,6 @@
 
       <div id="control-groups"></div>
 
-      <details class="group" open>
-        <summary>Export</summary>
-        <label class="ctl">
-          <span class="ctl-label">Size</span>
-          <select id="export-size"></select>
-        </label>
-        <p id="size-warning" class="warn" hidden></p>
-        <div class="export-buttons">
-          <button class="btn ghost" data-export="height">Height</button>
-          <button class="btn ghost" data-export="normal">Normal</button>
-          <button class="btn ghost" data-export="spec" id="export-spec">Specular</button>
-          <button class="btn accent wide" data-export="all">Download all as .zip</button>
-        </div>
-      </details>
-
       <button id="reset" class="btn ghost wide">Reset all settings</button>
     </div>
   </section>
@@ -86,12 +71,29 @@
   </main>
 
   <section class="window maps" aria-label="Maps">
-    <div class="titlebar"><span class="titlebar-dot"></span><span class="titlebar-title">Maps</span><span class="titlebar-meta">4 items</span></div>
+    <div class="titlebar"><span class="titlebar-dot"></span><span class="titlebar-title">Maps</span><span class="titlebar-meta">5 items</span></div>
     <div class="window-body maps-body" data-scroll>
       <figure class="map" data-map="source" tabindex="0" role="button"><div class="slot"></div><figcaption>Source</figcaption></figure>
       <figure class="map" data-map="height" tabindex="0" role="button"><div class="slot"></div><figcaption>Height</figcaption></figure>
       <figure class="map" data-map="normal" tabindex="0" role="button"><div class="slot"></div><figcaption>Normal</figcaption></figure>
       <figure class="map" data-map="spec" tabindex="0" role="button"><div class="slot"></div><figcaption id="spec-caption">Specular</figcaption></figure>
+      <figure class="map" data-map="orm" tabindex="0" role="button" title="R occlusion, G roughness, B metallic"><div class="slot"></div><figcaption>ORM</figcaption></figure>
+    </div>
+    <div class="maps-export" role="group" aria-label="Export">
+      <label class="ctl">
+        <span class="ctl-label">Export size</span>
+        <select id="export-size"></select>
+      </label>
+      <p id="size-warning" class="warn" hidden></p>
+      <div class="export-buttons">
+        <button class="btn ghost" data-export="height">Height</button>
+        <button class="btn ghost" data-export="normal">Normal</button>
+        <button class="btn ghost" data-export="spec" id="export-spec">Specular</button>
+        <button class="btn ghost" data-export="orm" title="R occlusion, G roughness, B metallic">ORM</button>
+        <button class="btn accent wide" data-export="all">Download all as .zip</button>
+        <button class="btn ghost wide" data-export="sl"
+          title="Base colour, OpenGL normal and ORM at power-of-two sizes up to 2048px, plus a .gltf material. Ignores the export size.">Second Life PBR (.zip)</button>
+      </div>
     </div>
   </section>
 

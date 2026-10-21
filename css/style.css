@@ -273,7 +273,7 @@ select:focus-visible { outline: none; border-color: var(--accent-line); }
 
 .warn { font-size: var(--text-12); color: var(--text-muted); margin: 0; padding-left: var(--space-10); border-left: 2px solid var(--accent-line); }
 
-.export-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
+.export-buttons { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-6); }
 .export-buttons .btn { padding: 0 var(--space-6); }
 .export-buttons .wide { grid-column: 1 / -1; }
 
@@ -331,6 +331,17 @@ select:focus-visible { outline: none; border-color: var(--accent-line); }
 .map:hover .slot, .map:focus-visible .slot { border-color: var(--accent); }
 .map:hover figcaption { color: var(--text-primary); }
 .map:focus-visible { outline: none; }
+
+/* Export sits under the map cards, outside their scroll, so it stays in view. */
+.maps-export {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  padding: var(--space-14) var(--space-16) var(--space-16);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-window);
+}
 
 /* ---------- Lightbox (dialog) ---------- */
 #lightbox {
@@ -428,6 +439,6 @@ select:focus-visible { outline: none; border-color: var(--accent-line); }
   .stage { order: 1; height: 64vh; height: 64svh; flex: none; }
   .maps { order: 2; }
   .controls { order: 3; }
-  .maps-body { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-8); }
+  .maps-body { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-8); }
   .window-body { overflow: visible; }
 }

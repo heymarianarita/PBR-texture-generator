@@ -2,7 +2,7 @@
 
 import { decodeFile, readPixels, grayToCanvas, rgbToCanvas, LARGE_EDGE, HUGE_EDGE } from './image-io.js';
 import { createPipeline, runPipeline } from './pipeline.js';
-import { downloadPng, downloadZip } from './export.js';
+import { downloadPng, downloadZip, makeGltf } from './export.js';
 import { SAMPLES } from './samples.js';
 
 const PREVIEW_EDGE = 1024;
@@ -33,11 +33,16 @@ const DEFAULTS = Object.freeze({
   specWhite: 1,
   specGamma: 1.5,
   specInvert: false,
+  // Occlusion and metallic (ORM)
+  aoStrength: 1,
+  aoRadius: 8,
+  metallic: 0,
   // Export & preview
   exportSize: 'full',
   shape: 'plane',
   tile: false,
   showColor: true,
+  orm: false,
   lightHeight: 0.6,
 });
 
@@ -81,12 +86,24 @@ const GROUPS = [
       { key: 'specInvert', type: 'toggle', label: 'Invert' },
     ],
   },
+  {
+    title: 'Occlusion and metallic',
+    controls: [
+      { key: 'aoStrength', type: 'range', label: 'Occlusion', min: 0, max: 3, step: 0.05, zero: 'off',
+        hint: 'Darkens cavities found in the height map. At 0 the occlusion channel is plain white.' },
+      { key: 'aoRadius', type: 'range', label: 'Occlusion radius', min: 1, max: 40, step: 1, unit: 'px' },
+      { key: 'metallic', type: 'range', label: 'Metallic', min: 0, max: 1, step: 0.01,
+        hint: '0 for most materials, 1 for bare metal.' },
+    ],
+  },
 ];
 
 const PREVIEW_CONTROLS = [
   { key: 'shape', type: 'segmented', options: [['plane', 'Plane'], ['sphere', 'Sphere']] },
   { key: 'tile', type: 'toggle', label: 'Tile 2×2' },
   { key: 'showColor', type: 'toggle', label: 'Colour' },
+  { key: 'orm', type: 'toggle', label: 'ORM (SL PBR)',
+    hint: 'Preview as a Second Life PBR material: occlusion, roughness and metallic from the ORM map.' },
   { key: 'lightHeight', type: 'range', label: 'Light height', min: 0.1, max: 2, step: 0.05 },
 ];
 
@@ -124,6 +141,7 @@ const canvases = {
   normal: document.createElement('canvas'),
   spec: document.createElement('canvas'),   // shown & exported: specular or roughness
   rough: document.createElement('canvas'),  // always roughness, for the 3D preview
+  orm: document.createElement('canvas'),    // R occlusion, G roughness, B metallic
 };
 const pipeline = createPipeline();
 let preview = null;
@@ -235,7 +253,7 @@ let recomputeTimer = 0;
 function onSettingChanged(key) {
   saveSettings();
   if (key === 'roughness') updateSpecLabels();
-  if (['shape', 'tile', 'showColor', 'lightHeight', 'flipGreen'].includes(key)) {
+  if (['shape', 'tile', 'showColor', 'orm', 'lightHeight', 'flipGreen'].includes(key)) {
     preview?.setOptions(previewOptions());
   }
   clearTimeout(recomputeTimer);
@@ -243,8 +261,8 @@ function onSettingChanged(key) {
 }
 
 function previewOptions() {
-  const { shape, tile, showColor, lightHeight, flipGreen } = settings;
-  return { shape, tile, showColor, lightHeight, flipGreen };
+  const { shape, tile, showColor, orm, lightHeight, flipGreen } = settings;
+  return { shape, tile, showColor, orm, lightHeight, flipGreen };
 }
 
 function recompute() {
@@ -260,7 +278,8 @@ function recompute() {
     state.lastRoughness = settings.roughness;
   }
   if (roughChanged) grayToCanvas(r.spec, w, h, canvases.rough, true);
-  preview?.refresh({ normal: r.changed.normal, rough: roughChanged });
+  if (r.changed.orm) rgbToCanvas(r.orm, w, h, canvases.orm);
+  preview?.refresh({ normal: r.changed.normal, rough: roughChanged, orm: r.changed.orm });
 
   const ms = Math.round(performance.now() - t0);
   const src = state.source;
@@ -302,10 +321,15 @@ function setSource(canvas, name) {
   setSlot('height', canvases.height);
   setSlot('normal', canvases.normal);
   setSlot('spec', canvases.spec);
+  setSlot('orm', canvases.orm);
 
   buildExportSizes();
   recompute();
-  preview?.setSource({ albedo: state.img.canvas, normal: canvases.normal, rough: canvases.rough });
+  preview?.setSource(previewSources());
+}
+
+function previewSources() {
+  return { albedo: state.img.canvas, normal: canvases.normal, rough: canvases.rough, orm: canvases.orm };
 }
 
 function setSlot(map, canvas) {
@@ -347,6 +371,7 @@ const nextPaint = () => new Promise((r) => requestAnimationFrame(() => setTimeou
 
 async function doExport(kind) {
   if (!state.source) return;
+  if (kind === 'sl') return exportSecondLife();
   const src = state.source;
   const long = Math.max(src.width, src.height);
   const edge = settings.exportSize === 'full' ? long : Math.min(long, parseInt(settings.exportSize, 10));
@@ -356,13 +381,18 @@ async function doExport(kind) {
     const img = readPixels(src, edge);
     const scale = Math.max(img.w, img.h) / Math.max(state.img.w, state.img.h);
     const all = kind === 'all';
-    const r = runPipeline(img, settings, scale, { normal: all || kind === 'normal', spec: all || kind === 'spec' });
+    const r = runPipeline(img, settings, scale, {
+      normal: all || kind === 'normal',
+      spec: all || kind === 'spec',
+      orm: all || kind === 'orm',
+    });
     const base = baseName();
     const specName = settings.roughness ? 'roughness' : 'specular';
     const files = {};
     if (all || kind === 'height') files[`${base}_height.png`] = grayToCanvas(r.height, img.w, img.h);
     if (r.normal) files[`${base}_normal_${settings.flipGreen ? 'dx' : 'gl'}.png`] = rgbToCanvas(r.normal, img.w, img.h);
-    if (r.spec) files[`${base}_${specName}.png`] = grayToCanvas(r.spec, img.w, img.h, undefined, settings.roughness);
+    if (all || kind === 'spec') files[`${base}_${specName}.png`] = grayToCanvas(r.spec, img.w, img.h, undefined, settings.roughness);
+    if (r.orm) files[`${base}_orm.png`] = rgbToCanvas(r.orm, img.w, img.h);
 
     setBusy('Encoding PNG…');
     await nextPaint();
@@ -375,6 +405,63 @@ async function doExport(kind) {
   } catch (err) {
     console.error(err);
     toast('That export ran out of memory. Try a smaller size.', true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+// Second Life PBR: base colour, OpenGL normal and ORM, each side a power of
+// two and at most 2048px, plus a .gltf material that uses them.
+const SL_MAX_EDGE = 2048;
+
+function nearestPow2(v) {
+  return Math.min(SL_MAX_EDGE, 2 ** Math.max(0, Math.round(Math.log2(v))));
+}
+
+// Resample a canvas to exactly w × h.
+function resized(canvas, w, h) {
+  if (canvas.width === w && canvas.height === h) return canvas;
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const ctx = out.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(canvas, 0, 0, w, h);
+  return out;
+}
+
+async function exportSecondLife() {
+  const src = state.source;
+  const long = Math.max(src.width, src.height);
+  const k = Math.min(1, SL_MAX_EDGE / long);
+  const w = nearestPow2(src.width * k), h = nearestPow2(src.height * k);
+  setBusy(`Processing at ${w}×${h}…`);
+  await nextPaint();
+  try {
+    // Process at the aspect-correct size, then stretch to the power-of-two
+    // size, so the maps match the photo once mapped back onto a face.
+    const img = readPixels(src, Math.min(long, Math.max(w, h)));
+    const scale = Math.max(img.w, img.h) / Math.max(state.img.w, state.img.h);
+    const r = runPipeline(img, { ...settings, flipGreen: false }, scale, { normal: true, spec: false, orm: true });
+    const base = baseName();
+    const names = {
+      basecolor: `${base}_basecolor.png`,
+      normal: `${base}_normal_gl.png`,
+      orm: `${base}_orm.png`,
+    };
+    const files = {
+      [names.basecolor]: resized(src, w, h),
+      [names.normal]: resized(rgbToCanvas(r.normal, img.w, img.h), w, h),
+      [names.orm]: resized(rgbToCanvas(r.orm, img.w, img.h), w, h),
+    };
+    setBusy('Encoding PNG…');
+    await nextPaint();
+    await downloadZip(files, `${base}_secondlife.zip`, { [`${base}.gltf`]: makeGltf(base, names, w / h) });
+    toast(`Second Life maps saved at ${w}×${h}.`);
+  } catch (err) {
+    console.error(err);
+    toast('That export ran out of memory. Try a smaller image.', true);
   } finally {
     setBusy(false);
   }
@@ -512,7 +599,7 @@ async function initPreview() {
     preview = await createPreview(viewport);
     preview.setOptions(previewOptions());
     if (state.img) {
-      preview.setSource({ albedo: state.img.canvas, normal: canvases.normal, rough: canvases.rough });
+      preview.setSource(previewSources());
     }
   } catch (err) {
     console.error(err);

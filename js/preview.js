@@ -27,7 +27,7 @@ export async function createPreview(container) {
   sphere.visible = false;
   scene.add(plane, sphere);
 
-  const opts = { shape: 'plane', tile: false, flipGreen: false, showColor: true, lightHeight: 0.6 };
+  const opts = { shape: 'plane', tile: false, flipGreen: false, showColor: true, orm: false, lightHeight: 0.6 };
   let textures = {};
   let imageAspect = 1;
 
@@ -91,6 +91,13 @@ export async function createPreview(container) {
       t.needsUpdate = true;
     }
     material.map = opts.showColor ? textures.albedo || null : null;
+    // ORM on: occlusion, roughness and metallic all read from the packed map
+    // (R, G, B), as in glTF. Off: roughness only, never metallic.
+    const orm = opts.orm ? textures.orm || null : null;
+    material.aoMap = orm;
+    material.metalnessMap = orm;
+    material.metalness = orm ? 1 : 0;
+    material.roughnessMap = orm || textures.rough || null;
     // three.js reads normal maps as OpenGL; flip Y so a DirectX map still previews correctly.
     material.normalScale.set(1, opts.flipGreen ? -1 : 1);
     material.needsUpdate = true;
@@ -117,7 +124,7 @@ export async function createPreview(container) {
 
   return {
     // Bind new canvases (call after loading a new image).
-    setSource({ albedo, normal, rough }) {
+    setSource({ albedo, normal, rough, orm }) {
       for (const t of Object.values(textures)) t.dispose();
       const aniso = renderer.capabilities.getMaxAnisotropy();
       const make = (canvas, srgb) => {
@@ -126,21 +133,21 @@ export async function createPreview(container) {
         t.anisotropy = aniso;
         return t;
       };
-      textures = { albedo: make(albedo, true), normal: make(normal), rough: make(rough) };
+      textures = { albedo: make(albedo, true), normal: make(normal), rough: make(rough), orm: make(orm) };
       material.normalMap = textures.normal;
-      material.roughnessMap = textures.rough;
       imageAspect = albedo.width / albedo.height;
       applyTextureOptions();
       layout();
     },
     // Re-upload canvases whose contents changed.
-    refresh({ normal, rough }) {
+    refresh({ normal, rough, orm }) {
       if (normal && textures.normal) textures.normal.needsUpdate = true;
       if (rough && textures.rough) textures.rough.needsUpdate = true;
+      if (orm && textures.orm) textures.orm.needsUpdate = true;
     },
     setOptions(next) {
       const shapeChanged = next.shape !== undefined && next.shape !== opts.shape;
-      const texChanged = ['tile', 'showColor', 'flipGreen'].some((k) => k in next && next[k] !== opts[k]);
+      const texChanged = ['tile', 'showColor', 'flipGreen', 'orm'].some((k) => k in next && next[k] !== opts[k]);
       Object.assign(opts, next);
       plane.visible = opts.shape === 'plane';
       sphere.visible = opts.shape === 'sphere';

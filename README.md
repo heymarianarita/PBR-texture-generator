@@ -1,6 +1,6 @@
 # Normal Map Maker
 
-Make **height**, **normal** and **specular/roughness** maps from a photo, right in the browser. Nothing is uploaded: all processing happens on your device.
+Make **height**, **normal**, **specular/roughness** and **ORM** (PBR) maps from a photo, right in the browser. Nothing is uploaded: all processing happens on your device.
 
 <!-- Add screenshots here once deployed, e.g. ![Screenshot](assets/screenshot.png) -->
 
@@ -10,8 +10,10 @@ Make **height**, **normal** and **specular/roughness** maps from a photo, right 
 - **Height:** invert, auto levels, black/white point, gamma, contrast, high-pass "flatten lighting", blur
 - **Normal:** strength, fine/medium/coarse detail, Sobel or Scharr filter, OpenGL (Y+) or DirectX (Y−) output, seamless/tileable edges
 - **Specular/Roughness:** derived from colour, height or a mix, with levels, gamma and invert
-- **Live 3D preview** (three.js): a plane or sphere, where the pointer moves the light. Also has light height, 2×2 tiling to check seams, and a colour on/off switch.
+- **ORM:** the packed glTF texture. R is ambient occlusion from the height map (cavities darken, with strength and radius; strength 0 gives plain white), G is roughness (1 − specular), B is a single metallic value
+- **Live 3D preview** (three.js): a plane or sphere, where the pointer moves the light. Also has light height, 2×2 tiling to check seams, a colour on/off switch, and an ORM switch that drives occlusion, roughness and metallic from the ORM map.
 - **Export:** each map as a PNG, or all of them as a `.zip`, at full or capped resolution
+- **Second Life PBR export:** base colour, OpenGL normal and ORM as a `.zip`, sized for Second Life, plus a `.gltf` material that uses them
 
 ## How it works
 
@@ -31,9 +33,10 @@ js/
   height.js      greyscale, levels, invert, high-pass, blur
   normal.js      Sobel/Scharr, multi-scale detail, OpenGL/DirectX
   specular.js    specular (roughness = 1 − specular)
+  orm.js         ambient occlusion and ORM packing
   pipeline.js    runs the stages, caching unchanged ones for the preview
   preview.js     three.js scene and light control
-  export.js      PNG downloads and zip bundle
+  export.js      PNG downloads, zip bundle and .gltf material
   samples.js     procedural sample textures
 assets/favicon.svg
 ```
@@ -64,6 +67,20 @@ Then open http://localhost:8000.
 
 The 3D preview always shows the selected format correctly. If lighting looks inverted in your engine, switch the format. If bumps look like dents, use **Height → Invert**.
 
+## Using in Second Life / Firestorm
+
+Second Life PBR materials follow glTF. They need a base colour, an OpenGL normal map and an ORM texture (R occlusion, G roughness, B metallic). Each texture must be a power of two on each side and at most 2048px.
+
+1. Tune the maps. Set **Metallic** to 0 for most materials, or 1 for bare metal. Turn on **ORM (SL PBR)** in the preview to see the material as it will look.
+2. Below the maps, choose **Second Life PBR (.zip)**. The zip holds:
+   - `name_basecolor.png`
+   - `name_normal_gl.png` (always OpenGL, whatever the Format setting)
+   - `name_orm.png`
+   - `name.gltf`, a single quad whose material uses the three PNGs
+
+   Each side is resized to the nearest power of two after capping the long edge at 2048px, so 1500×700 becomes 2048×512. The maps are made at the image's own proportions and then stretched, so they line up once mapped back onto a face.
+3. Unzip it. In Firestorm, either upload the `.gltf` as a material (keep the PNGs next to it), or create a new material in your inventory and upload the three PNGs into its base colour, normal and ORM slots. Texture uploads cost L$.
+
 ## Testing checklist
 
 - [ ] Square, wide and tall images
@@ -72,6 +89,7 @@ The 3D preview always shows the selected format correctly. If lighting looks inv
 - [ ] Tileable texture with **Seamless edges** on: check with **Tile 2×2**
 - [ ] Chrome, Firefox, mobile Safari
 - [ ] Load the exported normal map in Blender to confirm the green channel
+- [ ] Upload the Second Life export in Firestorm and compare it with the ORM preview
 
 ## Ideas for later
 
