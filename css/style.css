@@ -1,8 +1,6 @@
 /* App styles built on MDS tokens (css/mds). Only MDS variables are used for
    colour, type, radii, shadows and motion. */
 
-/* App override: desktop background uses the darkest MDS grey instead of night. */
-:root { --bg-desktop: var(--mds-grey-900); }
 
 html, body { height: 100%; }
 
@@ -198,7 +196,28 @@ body > * { position: relative; z-index: 1; }
 .ctl-label output { font: var(--type-meta); color: var(--text-subtle); font-variant-numeric: tabular-nums; }
 .ctl.toggle { flex-direction: row; align-items: center; gap: var(--space-8); cursor: pointer; font-size: var(--text-12); color: var(--text-secondary); }
 .ctl.toggle:hover { color: var(--text-primary); }
-.ctl.toggle input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; }
+/* Checkbox: night field when off; mint wash, line and tick when on (same
+   treatment as a selected chip). */
+.ctl.toggle input {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border-field);
+  background: var(--surface-window) no-repeat center / 10px 10px;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease;
+}
+.ctl.toggle:hover input { border-color: var(--accent-line); }
+.ctl.toggle input:checked {
+  background-color: var(--accent-selected);
+  border-color: var(--accent-selected-line);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' fill='none' stroke='%234EDAA7' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 5.2 4.1 7.2 8 2.8'/%3E%3C/svg%3E");
+}
+.ctl.toggle input:focus-visible { outline: 1px solid var(--accent-line); outline-offset: 2px; }
 
 /* Range: thin night track, mint fill, mint thumb. */
 input[type="range"] {
@@ -326,7 +345,7 @@ select:focus-visible { outline: none; border-color: var(--accent-line); }
   overflow: hidden;
 }
 #lightbox[open] { animation: mds-win-in var(--dur-window) var(--ease-out) both; }
-#lightbox::backdrop { background: rgba(4, 1, 41, 0.72); }
+#lightbox::backdrop { background: color-mix(in srgb, var(--bg-lock) 72%, transparent); }
 #lightbox .titlebar form { margin: 0; }
 #lightbox .slot { padding: var(--space-14); }
 #lightbox .slot canvas { display: block; max-width: 100%; max-height: calc(92vh - 70px); margin: 0 auto; border-radius: var(--radius-card); }
@@ -340,11 +359,21 @@ select:focus-visible { outline: none; border-color: var(--accent-line); }
   place-content: center;
   justify-items: center;
   gap: var(--space-12);
-  background: rgba(4, 1, 41, 0.72);
+  background: color-mix(in srgb, var(--bg-lock) 72%, transparent);
   color: var(--text-secondary);
   font-size: var(--text-14);
 }
-#busy p { margin: 0; font: var(--type-meta); color: var(--text-muted); }
+/* Busy state: a static status line. MDS motion never loops, so no spinner. */
+#busy p {
+  margin: 0;
+  padding: var(--space-10) var(--space-16);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-default);
+  background: var(--surface-dialog);
+  box-shadow: var(--shadow-dialog);
+  font: var(--type-meta);
+  color: var(--text-secondary);
+}
 #busy[hidden], #drop-overlay[hidden] { display: none; }
 #drop-overlay p {
   margin: 0;
@@ -355,8 +384,6 @@ select:focus-visible { outline: none; border-color: var(--accent-line); }
   color: var(--text-primary);
   pointer-events: none;
 }
-.spinner { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border-strong); border-top-color: var(--accent); animation: spin .9s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Toast: tooltip styling. */
 #toast {
