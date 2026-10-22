@@ -253,7 +253,7 @@ input[type="range"]:focus-visible { border-radius: var(--radius-sm); }
 }
 .viewport > canvas:not(.flat) { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 .viewport > canvas.dragging { cursor: grabbing; }
-.viewport.flat-mode > canvas:not(.flat) { display: none; }
+.viewport.flat-mode > canvas:not(.flat) { display: none !important; } /* three.js sets display: block inline */
 .flat {
   position: absolute;
   inset: 0;

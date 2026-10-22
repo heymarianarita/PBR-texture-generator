@@ -274,8 +274,15 @@ function buildTiles() {
     label.textContent = map.short || map.label;
     if (map.short) button.title = map.label;
     button.append(thumb, label);
+    // Picking a map means "show me this map": the 3D view shows the combined
+    // material, so switch the preview to Flat. The 3D button switches back.
     button.addEventListener('click', () => {
       settings.selected = map.id;
+      if (settings.view !== 'flat') {
+        settings.view = 'flat';
+        showViewSwitch?.();
+        applyView();
+      }
       saveSettings();
       showMapSettings();
     });
@@ -490,6 +497,7 @@ function updateHint() {
   $('#viewport-hint').textContent = `${drag} · ${zoom}`;
 }
 
+let showViewSwitch = null; // refreshes the 3D / Flat buttons when the view changes from elsewhere
 function applyView() {
   const flat = settings.view === 'flat';
   $('#viewport').classList.toggle('flat-mode', flat);
@@ -614,7 +622,7 @@ function wireEvents() {
     preview?.setOptions({ tile: settings.tile });
   });
 
-  bindSwitch('#view-switch', 'view', 'view', applyView);
+  showViewSwitch = bindSwitch('#view-switch', 'view', 'view', applyView);
   bindSwitch('#shape-switch', 'shape', 'shape', () => {
     preview?.setOptions({ shape: settings.shape });
     updateHint();
