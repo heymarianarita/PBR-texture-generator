@@ -1,5 +1,5 @@
-// Procedurally generated, tileable sample textures, so the repo needs no
-// binary sample files.
+// A procedurally generated, tileable brick texture shown on first load, so
+// the repo needs no binary sample file.
 
 const SIZE = 1024;
 
@@ -79,53 +79,4 @@ function bricks() {
   });
 }
 
-function cobbles() {
-  const C = 6, cell = SIZE / C;
-  const pts = [];
-  for (let j = 0; j < C; j++) {
-    for (let i = 0; i < C; i++) {
-      pts.push([(i + 0.2 + 0.6 * hash2(i, j, 1)) * cell, (j + 0.2 + 0.6 * hash2(i, j, 2)) * cell]);
-    }
-  }
-  return paint((x, y, u, v) => {
-    const cx = Math.floor(x / cell), cy = Math.floor(y / cell);
-    let f1 = Infinity, f2 = Infinity, id = 0;
-    for (let dj = -1; dj <= 1; dj++) {
-      for (let di = -1; di <= 1; di++) {
-        const ci = cx + di, cj = cy + dj;
-        const wi = (ci + C) % C, wj = (cj + C) % C;
-        const p = pts[wj * C + wi];
-        const d = Math.hypot(x - (p[0] + (ci - wi) * cell), y - (p[1] + (cj - wj) * cell));
-        if (d < f1) { f2 = f1; f1 = d; id = wj * C + wi; } else if (d < f2) f2 = d;
-      }
-    }
-    const edge = (f2 - f1) / 2;
-    const grain = fbm(u * 64, v * 64, 64, 21, 4);
-    const gap = 6 + (fbm(u * 10, v * 10, 10, 4, 3) - 0.5) * 6;
-    if (edge < gap) {
-      const m = 0.14 + 0.1 * grain;
-      return [m * 1.1, m, m * 0.85];
-    }
-    const t = hash2(id, 0, 9);
-    const dome = 1 - Math.min(1, (f1 / (cell * 0.7)) ** 2);
-    const bevel = smoothstep(gap, gap + 16, edge);
-    const shade = (0.4 + 0.6 * bevel * (0.6 + 0.4 * dome)) * (0.7 + 0.5 * grain);
-    return [(0.5 + 0.2 * t) * shade, (0.48 + 0.15 * t) * shade, (0.44 + 0.08 * t) * shade];
-  });
-}
-
-function plaster() {
-  return paint((x, y, u, v) => {
-    const base = fbm(u * 6, v * 6, 6, 1, 6);
-    const ridge = 1 - Math.abs(fbm(u * 14, v * 14, 14, 9, 4) - 0.5) * 2;
-    const grain = fbm(u * 160, v * 160, 160, 5, 2);
-    const s = 0.62 + 0.35 * (base - 0.5) * 2 + 0.12 * smoothstep(0.75, 1, ridge) + 0.08 * (grain - 0.5);
-    return [0.92 * s, 0.86 * s, 0.76 * s];
-  });
-}
-
-export const SAMPLES = [
-  { id: 'bricks', label: 'Bricks', make: bricks },
-  { id: 'cobbles', label: 'Cobblestones', make: cobbles },
-  { id: 'plaster', label: 'Plaster', make: plaster },
-];
+export const SAMPLE = { id: 'bricks', label: 'Bricks', make: bricks };

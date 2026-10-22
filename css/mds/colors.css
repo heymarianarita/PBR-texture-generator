@@ -1,0 +1,208 @@
+/* Palette: the raw values. Components never use these directly; they use the semantic tokens below.
+   Every ramp uses the same 50 to 950 steps on one shared lightness curve, so a step means roughly the same
+   contrast in every colour: 600 and up pass 4.5:1 on light backgrounds, 400 and down pass on dark. */
+:root {
+  /* Grey: the supplied greyscale. 200 is mixed from 100 and 300; 950 is 900 darkened. */
+  --mds-grey-50: #FAFAFA;
+  --mds-grey-100: #F2F2F3;
+  --mds-grey-200: #E2E2E4;
+  --mds-grey-300: #D2D1D6;
+  --mds-grey-400: #B5B4BB;
+  --mds-grey-500: #9797A1;
+  --mds-grey-600: #7A7986;
+  --mds-grey-700: #5F5E68;
+  --mds-grey-800: #44444B;
+  --mds-grey-900: #2A292E;
+  --mds-grey-950: #1A191D;
+
+  /* Violet: OKLCH around 700 (#362AC6). Lighter steps turn slightly warmer (hue 274 to 292) so tints stay violet. */
+  --mds-violet-50: #F6F4FF;
+  --mds-violet-100: #EAE8FE;
+  --mds-violet-200: #D6D4FE;
+  --mds-violet-300: #B6B4FF;
+  --mds-violet-400: #8C8DFA;
+  --mds-violet-500: #6769ED;
+  --mds-violet-600: #4B49DC;
+  --mds-violet-700: #362AC6;   /* reference: the brand violet */
+  --mds-violet-800: #2A1D9F;
+  --mds-violet-900: #1F1475;
+  --mds-violet-950: #11074A;
+
+  /* Supporting colours: tints from the supplied bases, saturated mid and dark steps (not muddy).
+     600 is tuned per hue so the three status solids look equally bright with white text
+     (Helmholtz-Kohlrausch-corrected lightness 54.5, the lightest yellow can be while white text keeps 4.5:1). */
+  --mds-red-50: #FEF3F1;
+  --mds-red-100: #FFE4E1;
+  --mds-red-200: #FCCCC5;
+  --mds-red-300: #F6A69B;
+  --mds-red-400: #F26B5B;
+  --mds-red-500: #E52D1C;   /* near the supplied #DD4231 */
+  --mds-red-600: #B52714;
+  --mds-red-700: #8D2211;
+  --mds-red-800: #6D1D0F;
+  --mds-red-900: #4C180E;
+  --mds-red-950: #2A0F0A;
+
+  --mds-yellow-50: #FBF6E6;
+  --mds-yellow-100: #F8EAC9;
+  --mds-yellow-200: #F2D696;
+  --mds-yellow-300: #ECAF13;   /* supplied base */
+  --mds-yellow-400: #C49136;
+  --mds-yellow-500: #B07C21;
+  --mds-yellow-600: #99681A;
+  --mds-yellow-700: #6C4512;
+  --mds-yellow-800: #553510;
+  --mds-yellow-900: #3D250F;
+  --mds-yellow-950: #22150A;
+
+  --mds-green-50: #EEF9F5;
+  --mds-green-100: #DAF1E9;
+  --mds-green-200: #B8E5D4;
+  --mds-green-300: #83D1B2;
+  --mds-green-400: #26B582;   /* supplied base */
+  --mds-green-500: #249867;
+  --mds-green-600: #1B7C50;
+  --mds-green-700: #165D3B;
+  --mds-green-800: #14482E;
+  --mds-green-900: #113321;
+  --mds-green-950: #0C1C13;
+}
+
+/*
+  Semantic tokens, shadcn style: every surface token has a matching -foreground.
+  Status colours come in three parts: solid (with -foreground and -hover) and -subtle (with -subtle-foreground).
+  Every solid takes white text. Primary is 700 on light and 600 on dark. Destructive, success and warning are 600 in both
+  themes, tuned to look equally bright (they are already as light as white text allows). Hover is one step deeper.
+  Light is the default. Dark applies with class="dark" or data-theme="dark" on <html>,
+  or from the OS when neither "light" is set.
+*/
+:root {
+  color-scheme: light;
+  --background: var(--mds-grey-50);
+  --foreground: var(--mds-grey-950);
+  --card: var(--mds-grey-50);
+  --card-foreground: var(--mds-grey-950);
+  --popover: var(--mds-grey-50);
+  --popover-foreground: var(--mds-grey-950);
+  --primary: var(--mds-violet-700);
+  --primary-hover: var(--mds-violet-800);
+  --primary-foreground: var(--mds-grey-50);
+  --primary-subtle: var(--mds-violet-100);   /* highlighted rows, "new" badges */
+  --primary-subtle-foreground: var(--mds-violet-800);
+  --secondary: var(--mds-grey-100);
+  --secondary-foreground: var(--mds-grey-950);
+  --muted: var(--mds-grey-100);
+  --muted-foreground: var(--mds-grey-700);
+  --accent: var(--mds-grey-100);   /* hover and selected rows; neutral, not the brand colour */
+  --accent-foreground: var(--mds-grey-950);
+  --destructive: var(--mds-red-600);
+  --destructive-hover: var(--mds-red-700);
+  --destructive-foreground: var(--mds-grey-50);
+  --destructive-subtle: var(--mds-red-100);
+  --destructive-subtle-foreground: var(--mds-red-700);
+  --destructive-text: var(--mds-red-700);   /* error messages and invalid field borders */
+  --success: var(--mds-green-600);
+  --success-hover: var(--mds-green-700);
+  --success-foreground: var(--mds-grey-50);
+  --success-subtle: var(--mds-green-100);
+  --success-subtle-foreground: var(--mds-green-700);   /* use -subtle-foreground for coloured text on the page */
+  --warning: var(--mds-yellow-600);
+  --warning-hover: var(--mds-yellow-700);
+  --warning-foreground: var(--mds-grey-50);
+  --warning-subtle: var(--mds-yellow-100);
+  --warning-subtle-foreground: var(--mds-yellow-800);
+  --border: var(--mds-grey-200);
+  --input: var(--mds-grey-600);   /* field and outline borders: 4.1:1, meets 3:1 for controls */
+  --ring: var(--mds-violet-500);
+  --link: var(--mds-violet-700);   /* violet text: links, link buttons */
+  --link-hover: var(--mds-violet-800);
+  --selection: rgba(54, 42, 198, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: var(--mds-grey-950);
+    --foreground: var(--mds-grey-50);
+    --card: var(--mds-grey-950);
+    --card-foreground: var(--mds-grey-50);
+    --popover: var(--mds-grey-900);
+    --popover-foreground: var(--mds-grey-50);
+    --primary: var(--mds-violet-600);
+    --primary-hover: var(--mds-violet-700);
+    --primary-foreground: var(--mds-grey-50);
+    --primary-subtle: var(--mds-violet-900);
+    --primary-subtle-foreground: var(--mds-violet-200);
+    --secondary: var(--mds-grey-900);
+    --secondary-foreground: var(--mds-grey-50);
+    --muted: var(--mds-grey-900);
+    --muted-foreground: var(--mds-grey-400);
+    --accent: var(--mds-grey-900);
+    --accent-foreground: var(--mds-grey-50);
+    --destructive: var(--mds-red-600);
+    --destructive-hover: var(--mds-red-700);
+    --destructive-foreground: var(--mds-grey-50);
+    --destructive-subtle: var(--mds-red-900);
+    --destructive-subtle-foreground: var(--mds-red-200);
+    --destructive-text: var(--mds-red-300);
+    --success: var(--mds-green-600);
+    --success-hover: var(--mds-green-700);
+    --success-foreground: var(--mds-grey-50);
+    --success-subtle: var(--mds-green-900);
+    --success-subtle-foreground: var(--mds-green-200);
+    --warning: var(--mds-yellow-600);
+    --warning-hover: var(--mds-yellow-700);
+    --warning-foreground: var(--mds-grey-50);
+    --warning-subtle: var(--mds-yellow-900);
+    --warning-subtle-foreground: var(--mds-yellow-200);
+    --border: var(--mds-grey-800);
+    --input: var(--mds-grey-600);
+    --ring: var(--mds-violet-400);
+    --link: var(--mds-violet-400);
+    --link-hover: var(--mds-violet-300);
+    --selection: rgba(140, 141, 250, 0.3);
+  }
+}
+
+:root.dark, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: var(--mds-grey-950);
+  --foreground: var(--mds-grey-50);
+  --card: var(--mds-grey-950);
+  --card-foreground: var(--mds-grey-50);
+  --popover: var(--mds-grey-900);
+  --popover-foreground: var(--mds-grey-50);
+  --primary: var(--mds-violet-600);
+  --primary-hover: var(--mds-violet-700);
+  --primary-foreground: var(--mds-grey-50);
+  --primary-subtle: var(--mds-violet-900);
+  --primary-subtle-foreground: var(--mds-violet-200);
+  --secondary: var(--mds-grey-900);
+  --secondary-foreground: var(--mds-grey-50);
+  --muted: var(--mds-grey-900);
+  --muted-foreground: var(--mds-grey-400);
+  --accent: var(--mds-grey-900);
+  --accent-foreground: var(--mds-grey-50);
+  --destructive: var(--mds-red-600);
+  --destructive-hover: var(--mds-red-700);
+  --destructive-foreground: var(--mds-grey-50);
+  --destructive-subtle: var(--mds-red-900);
+  --destructive-subtle-foreground: var(--mds-red-200);
+  --destructive-text: var(--mds-red-300);
+  --success: var(--mds-green-600);
+  --success-hover: var(--mds-green-700);
+  --success-foreground: var(--mds-grey-50);
+  --success-subtle: var(--mds-green-900);
+  --success-subtle-foreground: var(--mds-green-200);
+  --warning: var(--mds-yellow-600);
+  --warning-hover: var(--mds-yellow-700);
+  --warning-foreground: var(--mds-grey-50);
+  --warning-subtle: var(--mds-yellow-900);
+  --warning-subtle-foreground: var(--mds-yellow-200);
+  --border: var(--mds-grey-800);
+  --input: var(--mds-grey-600);
+  --ring: var(--mds-violet-400);
+  --link: var(--mds-violet-400);
+  --link-hover: var(--mds-violet-300);
+  --selection: rgba(140, 141, 250, 0.3);
+}

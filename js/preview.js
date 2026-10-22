@@ -1,5 +1,6 @@
-// three.js preview: a lit plane or sphere with the generated maps applied.
-// The pointer moves a point light; when idle the light orbits slowly.
+// three.js preview: a lit plane or sphere with the generated maps applied as
+// a PBR material. The light stays still. Dragging moves the light on the
+// plane and rotates the sphere.
 // Wheel or pinch zooms towards the pointer; double-click resets the zoom.
 
 export async function createPreview(container) {
@@ -7,7 +8,6 @@ export async function createPreview(container) {
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x0b0834); // MDS --surface-window
   container.prepend(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -17,42 +17,67 @@ export async function createPreview(container) {
   const light = new THREE.PointLight(0xffffff, 3.2, 0, 0); // no falloff: only direction matters
   scene.add(light);
   const marker = new THREE.Mesh(
-    new THREE.SphereGeometry(0.025, 16, 8),
-    new THREE.MeshBasicMaterial({ color: 0x4edaa7 /* MDS mint */ }),
+    new THREE.SphereGeometry(0.03, 16, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }),
   );
+  marker.visible = false; // shown only while dragging the light
   scene.add(marker);
 
-  const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0 });
+  const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 1 });
   const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
   const sphere = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 64), material);
   sphere.visible = false;
   scene.add(plane, sphere);
 
-  const opts = { shape: 'plane', tile: false, flipGreen: false, showColor: true, orm: false, lightHeight: 0.6 };
+  const opts = { shape: 'plane', tile: false, flipGreen: false, lightHeight: 0.7 };
   let textures = {};
   let imageAspect = 1;
 
-  // ---- Light control ----
   const el = renderer.domElement;
-  const ndc = new THREE.Vector2();
   const raycaster = new THREE.Raycaster();
   const groundPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
   const hit = new THREE.Vector3();
-  const target = new THREE.Vector2(0.6, 0.6);
-  const current = target.clone();
-  let pointerInside = false;
-  let orbitAngle = Math.PI / 4;
 
   const toNdc = (e, out = new THREE.Vector2()) => {
     const r = el.getBoundingClientRect();
     return out.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   };
 
-  function onPointer(e) {
-    toNdc(e, ndc);
-    raycaster.setFromCamera(ndc, camera);
-    if (raycaster.ray.intersectPlane(groundPlane, hit)) target.set(hit.x, hit.y);
-    pointerInside = true;
+  function objectSize() {
+    if (opts.shape === 'sphere') return [2, 2];
+    return imageAspect >= 1 ? [2, 2 / imageAspect] : [2 * imageAspect, 2];
+  }
+
+  // ---- Light: fixed, raking from the top left, until dragged ----
+  const lightTarget = new THREE.Vector2(-0.6, 0.6);
+  const lightPos = lightTarget.clone();
+  let dragId = null;
+
+  // ---- Sphere rotation: drag turns it about the screen's axes ----
+  const ROTATE_SPEED = 0.008; // radians per pixel
+  const lastDrag = { x: 0, y: 0 };
+  const axisX = new THREE.Vector3(1, 0, 0), axisY = new THREE.Vector3(0, 1, 0);
+  const turn = new THREE.Quaternion();
+
+  function rotateSphere(e) {
+    const dx = e.clientX - lastDrag.x, dy = e.clientY - lastDrag.y;
+    lastDrag.x = e.clientX;
+    lastDrag.y = e.clientY;
+    sphere.quaternion.premultiply(turn.setFromAxisAngle(axisY, dx * ROTATE_SPEED));
+    sphere.quaternion.premultiply(turn.setFromAxisAngle(axisX, dy * ROTATE_SPEED));
+  }
+
+  function moveLight(e) {
+    raycaster.setFromCamera(toNdc(e), camera);
+    if (!raycaster.ray.intersectPlane(groundPlane, hit)) return;
+    const [pw, ph] = objectSize();
+    lightTarget.set(THREE.MathUtils.clamp(hit.x, -pw, pw), THREE.MathUtils.clamp(hit.y, -ph, ph));
+  }
+
+  function endDrag() {
+    dragId = null;
+    marker.visible = false;
+    el.classList.remove('dragging');
   }
 
   // ---- Zoom ----
@@ -106,7 +131,7 @@ export async function createPreview(container) {
   }, { passive: false });
   el.addEventListener('dblclick', resetZoom);
 
-  // Touch pinch: two active pointers.
+  // ---- Pointers: one drags the light, two touches pinch-zoom ----
   const touches = new Map();
   let pinchDist = 0;
   const pinchInfo = () => {
@@ -115,6 +140,25 @@ export async function createPreview(container) {
       mid: { clientX: (a.clientX + b.clientX) / 2, clientY: (a.clientY + b.clientY) / 2 } };
   };
 
+  el.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'touch') touches.set(e.pointerId, e);
+    if (touches.size === 2) {
+      endDrag();
+      pinchDist = pinchInfo().dist;
+      return;
+    }
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragId = e.pointerId;
+    el.setPointerCapture?.(e.pointerId);
+    el.classList.add('dragging');
+    if (opts.shape === 'sphere') {
+      lastDrag.x = e.clientX;
+      lastDrag.y = e.clientY;
+    } else {
+      marker.visible = true;
+      moveLight(e);
+    }
+  });
   el.addEventListener('pointermove', (e) => {
     if (touches.has(e.pointerId)) touches.set(e.pointerId, e);
     if (touches.size === 2) {
@@ -123,29 +167,19 @@ export async function createPreview(container) {
       pinchDist = dist;
       return;
     }
-    onPointer(e);
+    if (e.pointerId !== dragId) return;
+    if (opts.shape === 'sphere') rotateSphere(e);
+    else moveLight(e);
   });
-  el.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'touch') touches.set(e.pointerId, e);
-    if (touches.size === 2) { pinchDist = pinchInfo().dist; return; }
-    onPointer(e);
-    el.setPointerCapture?.(e.pointerId);
-  });
-  el.addEventListener('pointerleave', () => { pointerInside = false; orbitAngle = Math.atan2(current.y, current.x); });
-  const endTouch = (e) => {
+  const release = (e) => {
     touches.delete(e.pointerId);
     pinchDist = 0;
-    if (e.pointerType !== 'mouse') { pointerInside = false; orbitAngle = Math.atan2(current.y, current.x); }
+    if (e.pointerId === dragId) endDrag();
   };
-  el.addEventListener('pointerup', endTouch);
-  el.addEventListener('pointercancel', endTouch);
+  el.addEventListener('pointerup', release);
+  el.addEventListener('pointercancel', release);
 
   // ---- Layout ----
-  function objectSize() {
-    if (opts.shape === 'sphere') return [2, 2];
-    return imageAspect >= 1 ? [2, 2 / imageAspect] : [2 * imageAspect, 2];
-  }
-
   function layout() {
     const w = container.clientWidth, h = container.clientHeight;
     if (!w || !h) return;
@@ -169,6 +203,8 @@ export async function createPreview(container) {
   new ResizeObserver(layout).observe(container);
 
   // ---- Textures ----
+  // A glTF-style material: colour, normal, and ORM (occlusion, roughness,
+  // metallic in R, G, B).
   function applyTextureOptions() {
     const rep = opts.tile ? 2 : 1;
     for (const t of Object.values(textures)) {
@@ -177,14 +213,11 @@ export async function createPreview(container) {
       t.repeat.set(rep, rep);
       t.needsUpdate = true;
     }
-    material.map = opts.showColor ? textures.albedo || null : null;
-    // ORM on: occlusion, roughness and metallic all read from the packed map
-    // (R, G, B), as in glTF. Off: roughness only, never metallic.
-    const orm = opts.orm ? textures.orm || null : null;
-    material.aoMap = orm;
-    material.metalnessMap = orm;
-    material.metalness = orm ? 1 : 0;
-    material.roughnessMap = orm || textures.rough || null;
+    material.map = textures.albedo || null;
+    material.normalMap = textures.normal || null;
+    material.aoMap = textures.orm || null;
+    material.roughnessMap = textures.orm || null;
+    material.metalnessMap = textures.orm || null;
     // three.js reads normal maps as OpenGL; flip Y so a DirectX map still previews correctly.
     material.normalScale.set(1, opts.flipGreen ? -1 : 1);
     material.needsUpdate = true;
@@ -195,18 +228,11 @@ export async function createPreview(container) {
   renderer.setAnimationLoop((now) => {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    const [pw, ph] = objectSize();
-    if (!pointerInside) {
-      orbitAngle += dt * 0.7;
-      const R = 0.75 * Math.min(pw, ph) / 2 + (opts.shape === 'sphere' ? 0.3 : 0);
-      target.set(Math.cos(orbitAngle) * R, Math.sin(orbitAngle) * R);
-    }
-    current.lerp(target, 1 - Math.pow(0.0005, dt));
-    const z = opts.lightHeight + (opts.shape === 'sphere' ? 1 : 0);
-    light.position.set(current.x, current.y, z);
-    marker.position.copy(light.position);
-    if (opts.shape === 'sphere') sphere.rotation.y += dt * 0.12;
     const ease = 1 - Math.pow(0.000005, dt);
+    lightPos.lerp(lightTarget, ease);
+    const z = opts.lightHeight + (opts.shape === 'sphere' ? 1 : 0);
+    light.position.set(lightPos.x, lightPos.y, z);
+    marker.position.copy(light.position);
     zoom += (zoomTarget - zoom) * ease;
     pan.lerp(panTarget, ease);
     placeCamera();
@@ -215,7 +241,7 @@ export async function createPreview(container) {
 
   return {
     // Bind new canvases (call after loading a new image).
-    setSource({ albedo, normal, rough, orm }) {
+    setSource({ albedo, normal, orm }) {
       for (const t of Object.values(textures)) t.dispose();
       const aniso = renderer.capabilities.getMaxAnisotropy();
       const make = (canvas, srgb) => {
@@ -224,27 +250,29 @@ export async function createPreview(container) {
         t.anisotropy = aniso;
         return t;
       };
-      textures = { albedo: make(albedo, true), normal: make(normal), rough: make(rough), orm: make(orm) };
-      material.normalMap = textures.normal;
+      textures = { albedo: make(albedo, true), normal: make(normal), orm: make(orm) };
       imageAspect = albedo.width / albedo.height;
       applyTextureOptions();
       layout();
     },
     // Re-upload canvases whose contents changed.
-    refresh({ normal, rough, orm }) {
+    refresh({ normal, orm }) {
       if (normal && textures.normal) textures.normal.needsUpdate = true;
-      if (rough && textures.rough) textures.rough.needsUpdate = true;
       if (orm && textures.orm) textures.orm.needsUpdate = true;
     },
     setOptions(next) {
       const shapeChanged = next.shape !== undefined && next.shape !== opts.shape;
-      const texChanged = ['tile', 'showColor', 'flipGreen', 'orm'].some((k) => k in next && next[k] !== opts[k]);
+      const texChanged = ['tile', 'flipGreen'].some((k) => k in next && next[k] !== opts[k]);
       Object.assign(opts, next);
       plane.visible = opts.shape === 'plane';
       sphere.visible = opts.shape === 'sphere';
       if (texChanged) applyTextureOptions();
       if (shapeChanged) { resetZoom(); layout(); }
     },
+    setBackground(color) {
+      renderer.setClearColor(color);
+    },
+    resize: layout,
     zoomIn: () => zoomBy(1.25),
     zoomOut: () => zoomBy(1 / 1.25),
     resetZoom,

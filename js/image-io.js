@@ -44,12 +44,14 @@ async function decodeWithImageElement(file) {
   }
 }
 
-// Draw `source` scaled so its long edge is at most `maxEdge`, and return
+// Draw `source` scaled so its long edge is at most `maxEdge` (or exactly
+// `maxEdge` when `upscale` is set), and return
 // { w, h, rgb: Float32Array (interleaved, 0..1), canvas }.
 // Transparent pixels are composited over mid grey, which reads as flat height.
-export function readPixels(source, maxEdge) {
+export function readPixels(source, maxEdge, upscale = false) {
   const sw = source.width, sh = source.height;
-  const k = maxEdge && Math.max(sw, sh) > maxEdge ? maxEdge / Math.max(sw, sh) : 1;
+  const long = Math.max(sw, sh);
+  const k = maxEdge && (upscale || long > maxEdge) ? maxEdge / long : 1;
   const w = Math.max(1, Math.round(sw * k));
   const h = Math.max(1, Math.round(sh * k));
 

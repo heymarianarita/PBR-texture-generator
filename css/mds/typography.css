@@ -1,0 +1,36 @@
+:root {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --text-xs: 12px;    /* badges, tooltips, captions */
+  --text-sm: 14px;    /* UI: buttons, inputs, labels, card copy */
+  --text-base: 16px;  /* reading text */
+  --text-lg: 18px;
+  --text-xl: 20px;    /* lead */
+  --text-2xl: 24px;   /* h3 */
+  --text-3xl: 30px;   /* h2 */
+  --text-4xl: 36px;   /* h1 */
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  --leading-none: 1;
+  --leading-tight: 1.2;
+  --leading-snug: 1.4;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  --tracking-tight: -0.025em;
+
+  --type-h1: var(--weight-semibold) var(--text-4xl)/var(--leading-tight) var(--font-sans);
+  --type-h2: var(--weight-semibold) var(--text-3xl)/var(--leading-tight) var(--font-sans);
+  --type-h3: var(--weight-semibold) var(--text-2xl)/var(--leading-snug) var(--font-sans);
+  --type-h4: var(--weight-semibold) var(--text-xl)/var(--leading-snug) var(--font-sans);
+  --type-lead: var(--weight-regular) var(--text-xl)/var(--leading-normal) var(--font-sans);
+  --type-p: var(--weight-regular) var(--text-base)/var(--leading-relaxed) var(--font-sans);
+  --type-ui: var(--weight-medium) var(--text-sm)/var(--leading-none) var(--font-sans);
+  --type-small: var(--weight-regular) var(--text-sm)/var(--leading-normal) var(--font-sans);
+  --type-caption: var(--weight-regular) var(--text-xs)/var(--leading-snug) var(--font-sans);
+  --type-data: var(--weight-regular) var(--text-sm)/var(--leading-normal) var(--font-mono);
+}

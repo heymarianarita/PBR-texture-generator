@@ -1,5 +1,5 @@
-// Runs height → normal / specular / ORM, re-running only the stages whose
-// settings changed.
+// Runs height → normal / roughness / occlusion / ORM, re-running only the
+// stages whose settings changed.
 
 import { computeHeight } from './height.js';
 import { computeNormal } from './normal.js';
@@ -8,20 +8,22 @@ import { computeOcclusion, packOrm } from './orm.js';
 
 const HEIGHT_KEYS = ['invert', 'autoLevels', 'black', 'white', 'gamma', 'contrast', 'highpass', 'blur', 'tileable'];
 const NORMAL_KEYS = ['strength', 'kernel', 'fine', 'medium', 'coarse', 'flipGreen'];
-const SPEC_KEYS = ['specSource', 'specBlack', 'specWhite', 'specGamma', 'specInvert'];
+const SPEC_KEYS = ['roughBase', 'roughContrast', 'roughInvert'];
 const AO_KEYS = ['aoStrength', 'aoRadius'];
 
 const keyOf = (s, keys) => JSON.stringify(keys.map((k) => s[k]));
 
-// One-off run, used for full-resolution export. The ORM map needs specular.
-export function runPipeline(img, s, scale, want = { normal: true, spec: true, orm: true }) {
+// One-off run of every stage, used for export.
+export function runPipeline(img, s, scale) {
   const height = computeHeight(img, s, scale);
-  const spec = want.spec || want.orm ? computeSpecular(img, height, s) : null;
+  const spec = computeSpecular(img, height, s);
+  const ao = computeOcclusion(height, img.w, img.h, s, scale);
   return {
     height,
-    normal: want.normal ? computeNormal(height, img.w, img.h, s, scale) : null,
+    normal: computeNormal(height, img.w, img.h, s, scale),
     spec,
-    orm: want.orm ? packOrm(computeOcclusion(height, img.w, img.h, s, scale), spec, s.metallic) : null,
+    ao,
+    orm: packOrm(ao, spec, s.metallic),
   };
 }
 
@@ -29,7 +31,7 @@ export function runPipeline(img, s, scale, want = { normal: true, spec: true, or
 export function createPipeline() {
   let cache = {};
   return function run(img, s, scale = 1) {
-    const changed = { height: false, normal: false, spec: false, orm: false };
+    const changed = { height: false, normal: false, spec: false, ao: false, orm: false };
     const hk = `${img.id}|${scale}|${keyOf(s, HEIGHT_KEYS)}`;
     if (cache.hk !== hk) {
       cache = { hk, height: computeHeight(img, s, scale) };
@@ -48,17 +50,16 @@ export function createPipeline() {
       changed.spec = true;
     }
     const ak = keyOf(s, AO_KEYS);
-    let aoChanged = false;
     if (changed.height || cache.ak !== ak) {
       cache.ak = ak;
       cache.ao = computeOcclusion(cache.height, img.w, img.h, s, scale);
-      aoChanged = true;
+      changed.ao = true;
     }
-    if (aoChanged || changed.spec || cache.metallic !== s.metallic) {
+    if (changed.ao || changed.spec || cache.metallic !== s.metallic) {
       cache.metallic = s.metallic;
       cache.orm = packOrm(cache.ao, cache.spec, s.metallic);
       changed.orm = true;
     }
-    return { height: cache.height, normal: cache.normal, spec: cache.spec, orm: cache.orm, changed };
+    return { ...cache, changed };
   };
 }

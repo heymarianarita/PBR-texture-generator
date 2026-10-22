@@ -1,0 +1,21 @@
+:root {
+  /* One base radius; the rest derive from it */
+  --radius: 0.5rem;                        /* 8px */
+  --radius-sm: calc(var(--radius) - 4px);  /* 4px: checkboxes, small tags */
+  --radius-md: calc(var(--radius) - 2px);  /* 6px: buttons, inputs, badges, tooltips */
+  --radius-lg: var(--radius);              /* 8px: popovers, inset panels */
+  --radius-xl: calc(var(--radius) + 4px);  /* 12px: cards */
+  --radius-full: 9999px;                   /* avatars only */
+
+  /* Borders do the separating. Shadows stay faint and are never coloured. */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+
+  /* Focus: solid 2px ring with a 2px gap, so it sits on the page colour and never on the control */
+  --focus-width: 2px;
+  --focus-offset: 2px;
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration: 150ms;
+}
