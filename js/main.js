@@ -654,6 +654,7 @@ function wireEvents() {
     preview?.setOptions({ flipGreen: settings.flipGreen });
     showMapSettings();
     onSettingChanged('reset');
+    toast(state.img ? 'Settings reset. Your image is kept.' : 'Settings reset.');
   });
 }
 
