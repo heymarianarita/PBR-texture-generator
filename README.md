@@ -18,7 +18,7 @@ Turn a photo into PBR texture maps, right in the browser: normal, specular, heig
    - Scroll or pinch to zoom. Double-click to reset.
 4. Pick a size (512, 1K, 2K or 4K) and download the selected map, all maps as a `.zip`, or a Second Life material.
 
-Turn on **Seamless** for tiling textures so the filters wrap around the edges. The interface uses MDS (Mariana's Design System): light by default, dark when your system is, and a button to pick System, Light or Dark.
+Turn on **Seamless** for tiling textures so the filters wrap around the edges. The interface uses MDS (Mariana's Design System): light by default, dark when your system is, and a Light / Dark / System switch in the header.
 
 ## How it works
 

@@ -502,8 +502,18 @@ function applyView() {
 }
 
 // ---------- Theme ----------
-// System (follows the OS), Light or Dark. The button cycles them; an explicit choice is saved.
-const THEME_MODES = ['system', 'light', 'dark'];
+// Light, Dark or System (follows the OS), picked in the header's three-option switch. An explicit choice is saved.
+const themeSwitch = $('#theme-switch');
+const themeButtons = [...themeSwitch.querySelectorAll('[role="radio"]')];
+
+// Only the current option is in the tab order (radio-group pattern).
+function renderThemeSwitch(mode) {
+  for (const b of themeButtons) {
+    const on = b.dataset.mode === mode;
+    b.setAttribute('aria-checked', String(on));
+    b.tabIndex = on ? 0 : -1;
+  }
+}
 
 function currentTheme() {
   return document.documentElement.dataset.theme || 'system';
@@ -519,11 +529,7 @@ function applyTheme(mode) {
     if (mode === 'system') localStorage.removeItem(THEME_KEY);
     else localStorage.setItem(THEME_KEY, mode);
   } catch { /* ignore */ }
-  const next = THEME_MODES[(THEME_MODES.indexOf(mode) + 1) % THEME_MODES.length];
-  const button = $('#theme-toggle');
-  button.setAttribute('aria-label', `Theme: ${mode}. Switch to ${next}`);
-  button.title = `Theme: ${mode}`;
-  for (const icon of button.querySelectorAll('.theme-icon')) icon.hidden = icon.dataset.mode !== mode;
+  renderThemeSwitch(mode);
   syncThemeColours();
   void root.offsetHeight;
   setTimeout(() => root.classList.remove('mds-theme-switching'), 0);
@@ -619,9 +625,21 @@ function wireEvents() {
   $('#download-all').addEventListener('click', () => download('all'));
   $('#download-sl').addEventListener('click', downloadSecondLife);
 
-  $('#theme-toggle').addEventListener('click', () => {
-    const mode = currentTheme();
-    applyTheme(THEME_MODES[(THEME_MODES.indexOf(mode) + 1) % THEME_MODES.length]);
+  // Radio-group keyboard: arrows move and select, Home/End jump.
+  themeSwitch.addEventListener('click', (e) => {
+    const b = e.target.closest('[role="radio"]');
+    if (b) applyTheme(b.dataset.mode);
+  });
+  themeSwitch.addEventListener('keydown', (e) => {
+    const i = themeButtons.indexOf(document.activeElement);
+    if (i < 0) return;
+    const n = themeButtons.length;
+    const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: n - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    const b = themeButtons[(to + n) % n];
+    b.focus();
+    applyTheme(b.dataset.mode);
   });
   // On System, follow the OS when it switches between light and dark.
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
