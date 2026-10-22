@@ -41,7 +41,7 @@ button, input, select { font: inherit; color: inherit; }
 /* ---------- Header ---------- */
 .top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
   max-width: 1480px;
@@ -49,7 +49,6 @@ button, input, select { font: inherit; color: inherit; }
   padding: var(--space-8) var(--space-8) var(--space-6);
 }
 .top h1 { margin: 0; font: var(--type-h2); letter-spacing: var(--tracking-tight); }
-.lede { margin: var(--space-2) 0 0; color: var(--muted-foreground); font: var(--type-p); }
 
 /* Theme switch: Light / Dark / System as one radio group. The current setting takes the
    selection language (violet tint and ring); hover shows the ring. */
@@ -425,6 +424,37 @@ input[type="range"]:focus-visible { border-radius: var(--radius-sm); }
   transition: opacity var(--duration) var(--ease), transform var(--duration) var(--ease);
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Wide screens: app layout ----------
+   The title and the preview column always fit the window; only the settings
+   panel on the right scrolls. */
+@media (min-width: 961px) {
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+  .top { flex: none; width: 100%; }
+  .app {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    align-items: stretch;
+    padding-bottom: var(--space-6);
+  }
+  .viewer { position: static; min-height: 0; }
+  .viewport { flex: 1; height: auto; min-height: 240px; }
+  .panel {
+    min-height: 0;
+    overflow-y: auto;
+    align-content: start;
+    /* Room for focus rings and the scrollbar inside the scroll area. */
+    padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+    margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-3)) 0 calc(-1 * var(--space-1));
+  }
+}
 
 /* ---------- Narrow screens ---------- */
 @media (max-width: 960px) {
