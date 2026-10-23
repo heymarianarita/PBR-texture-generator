@@ -465,10 +465,16 @@ input[type="range"]:focus-visible { border-radius: var(--radius-sm); }
     height: 100dvh;
     overflow: hidden;
   }
+  /* No width cap: the preview takes all the room a wide screen gives it, the
+     settings column grows a little, and the side margins scale with the window. */
   .app {
     flex: 1;
     min-height: 0;
     width: 100%;
+    max-width: none;
+    grid-template-columns: minmax(0, 1fr) clamp(380px, 22vw, 520px);
+    column-gap: clamp(var(--space-6), 2vw, 48px);
+    padding-inline: clamp(var(--space-8), 3vw, 72px);
     grid-template-rows: auto minmax(0, 1fr);
     align-items: stretch;
     padding-bottom: var(--space-6);
