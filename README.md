@@ -9,20 +9,21 @@ Turn a photo into PBR texture maps, right in the browser: normal, specular and O
 1. Drop an image, click to upload, or paste one. A brick texture is shown until you do.
 2. Set the look under **Presets** (collapsed by default; its header shows the preset in use):
    - Pick a preset: Velvet & bouclé, Fabric, Leather, Wood, Stone, Plaster, Metal, Plastic or Polished. Each sets the normal detail, roughness, occlusion and metallic values for how that material reads in Second Life. Click the selected preset again to undo it and get your earlier settings back.
-   - Or choose **Suggest a preset from a photo** and add a photo of the look you want. The site measures how shiny it is, how big its bumps are and whether it has a grain, suggests the closest preset adjusted to the photo, and lists close alternatives. **Apply suggestion** uses it. The reference stays in the corner of the preview so you can compare.
+   - Or choose **Or upload your reference** and add a photo of the look you want. It makes a **Custom** preset chip (with a thumbnail of the photo) whose settings are matched to it: roughness, metallic, the large/medium/fine details, strength and occlusion. It's applied straight away and works like any preset: click it again to undo. Each photo adds another (Custom 2, Custom 3…), for this session only. While one is selected, a card shows the photo, what was measured, the values set and the closest presets.
    - Second Life PBR has no sheen, so soft fabrics like velvet are faked with very matte roughness, fuzzy fine bumps and soft occlusion.
    - The analysis runs in your browser and works best on a photo cropped close to the material. It's a starting point: tweak the maps afterwards.
 3. Click a map tile to see that map and its essential settings. Everything else is under **Advanced**, which starts collapsed.
-   - **Source:** your photo, used as the base colour. No settings.
+   - **PBR:** the whole material in the 3D preview. No settings.
+   - **Diffuse:** your photo, used as the base colour. No settings.
    - **Normal:** large, medium and fine details. Advanced: strength, height contrast, smooth, even out lighting, invert, OpenGL or DirectX.
    - **Specular:** roughness. Advanced: contrast, invert. Specular is the inverse of the ORM roughness, so they share these settings.
    - **ORM:** occlusion, roughness, metallic. Advanced: occlusion spread, roughness contrast, invert roughness, height contrast, smooth, even out lighting. Red is occlusion, green is roughness, blue is metallic.
-4. Check the result in the **3D** preview (plane or sphere, with 2×2 tiling to spot seams), or switch to **Flat** to see the selected map.
+4. Pick the **PBR** tile to check the whole material in 3D (plane or sphere, with 2×2 tiling to spot seams). Any other tile shows that map flat.
    - The light stays still. On the plane, drag to move the light. On the sphere, drag to rotate it.
    - Scroll or pinch to zoom. Double-click to reset.
 5. Pick a size (512, 1K, 2K or 4K) and download the selected map, all maps as a `.zip`, or a Second Life material.
 
-Turn on **Seamless** for tiling textures so the filters wrap around the edges. The interface uses MDS (Mariana's Design System): light by default, dark when your system is, and a Light / Dark / System switch in the header.
+For textures that repeat, turn on **Seamless** in the Download card so the maps wrap around the edges. The interface uses MDS (Mariana's Design System): light by default, dark when your system is, and a Light / Dark / System switch in the header.
 
 ## How it works
 
@@ -44,7 +45,7 @@ js/
   specular.js    roughness from brightness (specular = 1 − roughness)
   orm.js         ambient occlusion and ORM packing
   presets.js     material presets tuned for Second Life
-  reference.js   reads a reference photo and suggests a preset and settings
+  reference.js   measures a reference photo and makes settings matched to it
   pipeline.js    runs the stages, caching unchanged ones for the preview
   preview.js     three.js scene, draggable light, zoom
   export.js      PNG downloads, zip bundle and .gltf material

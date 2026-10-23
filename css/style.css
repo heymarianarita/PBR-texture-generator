@@ -243,7 +243,7 @@ input[type="range"]:focus-visible { border-radius: var(--radius-sm); }
 
 /* ---------- Viewer ---------- */
 .viewer { position: sticky; top: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.viewer-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.viewer-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-3); min-height: var(--control-sm); }
 .viewer-opts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); }
 .viewer-opts[hidden] { display: none; }
 
@@ -340,10 +340,9 @@ input[type="range"]:focus-visible { border-radius: var(--radius-sm); }
 .dropzone:hover, body.dragging .dropzone { border: 1px solid var(--ring); box-shadow: var(--select-ring); background: var(--primary-subtle); }
 .dropzone:hover span, body.dragging .dropzone span { color: var(--primary-subtle-foreground); }
 
-.source-row { display: flex; justify-content: flex-end; }
 
 /* Map tiles: selectable, so hover = violet ring, selected = ring + tint */
-.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2); }
+.tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-2); }
 .tile {
   appearance: none;
   display: flex;
@@ -380,40 +379,25 @@ input[type="range"]:focus-visible { border-radius: var(--radius-sm); }
   transition: background var(--duration) var(--ease), color var(--duration) var(--ease), border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
 }
 .chip:hover { border-color: var(--ring); box-shadow: var(--select-ring), var(--shadow-xs); color: var(--foreground); }
+.chip.has-thumb { display: inline-flex; align-items: center; gap: var(--space-1-5); padding-left: var(--space-1); }
+.chip.has-thumb canvas { width: 22px; height: 22px; border-radius: var(--radius-full); }
 .chip[aria-pressed="true"] { border-color: var(--ring); box-shadow: var(--select-ring), var(--shadow-xs); background: var(--primary-subtle); color: var(--primary-subtle-foreground); }
 
 /* Reference photo: thumbnail, what was found, and actions. */
-.ref-result { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: var(--space-3) var(--space-4); align-items: start; }
+.ref-result { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: var(--space-3) var(--space-4); align-items: start; }
 .ref-result[hidden] { display: none; }
 .ref-result canvas { width: 72px; height: 72px; border-radius: var(--radius-md); background: var(--secondary); border: 1px solid var(--border); }
 .ref-text strong { display: block; font: var(--type-ui); font-weight: var(--weight-semibold); }
 .ref-text ul { margin: var(--space-1) 0 0; padding-left: 1.1em; color: var(--muted-foreground); font: var(--type-small); }
-.ref-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-2); }
-.ref-actions .btn { flex: 1; }
-.ref-actions .icon { flex: none; display: grid; place-items: center; color: var(--muted-foreground); }
-.ref-actions .icon svg { width: 16px; height: 16px; }
+.ref-values { margin: var(--space-2) 0 0; color: var(--muted-foreground); font: var(--type-caption); font-variant-numeric: tabular-nums; }
+.ref-values:empty { display: none; }
+#preset-about button { appearance: none; padding: 0; border: 0; background: none; color: var(--link); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+#ref-remove { display: grid; place-items: center; color: var(--muted-foreground); }
+#ref-remove svg { width: 16px; height: 16px; }
 #ref-alt { grid-column: 1 / -1; }
 #ref-alt:empty { display: none; }
 #ref-alt button { appearance: none; padding: 0; border: 0; background: none; color: var(--link); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 #ref-alt button:hover { color: var(--link-hover); }
-
-/* The reference stays in the preview's corner for side-by-side comparison. */
-.ref-pip {
-  position: absolute;
-  left: var(--space-3);
-  top: var(--space-3);
-  margin: 0;
-  width: min(26%, 200px);
-  padding: var(--space-1);
-  border-radius: var(--radius-lg);
-  background: var(--popover);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-md);
-  pointer-events: none;
-}
-.ref-pip[hidden] { display: none; }
-.ref-pip canvas { display: block; width: 100%; height: auto; border-radius: var(--radius-md); }
-.ref-pip figcaption { padding: var(--space-1) var(--space-1) 0; color: var(--muted-foreground); font: var(--type-caption); }
 
 /* Collapsible card: the header is the toggle; a chevron points down when closed. */
 .card.collapsible > summary {

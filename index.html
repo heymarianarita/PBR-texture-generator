@@ -57,10 +57,6 @@
     </header>
     <section class="viewer" aria-label="Preview">
       <div class="viewer-bar">
-        <div class="seg" id="view-switch" role="group" aria-label="View">
-          <button type="button" data-view="3d">3D</button>
-          <button type="button" data-view="flat">Flat</button>
-        </div>
         <div class="viewer-opts" id="opts-3d">
           <div class="seg" id="shape-switch" role="group" aria-label="Shape">
             <button type="button" data-shape="plane">Plane</button>
@@ -76,10 +72,6 @@
           <button type="button" class="zoom-level" id="zoom-level" title="Reset zoom">100%</button>
           <button type="button" class="icon" id="zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
         </div>
-        <figure class="ref-pip" id="ref-pip" hidden>
-          <canvas id="ref-pip-canvas"></canvas>
-          <figcaption>Reference</figcaption>
-        </figure>
         <p class="hint" id="viewport-hint">Drag to move the light · scroll to zoom</p>
       </div>
       <p class="meta" id="status">Loading…</p>
@@ -91,9 +83,6 @@
         <strong>Upload an image</strong>
         <span>Drop it here, click to browse, or paste</span>
       </div>
-      <div class="source-row">
-        <label class="check" title="Wrap the edges so a tiling texture has no seams."><input type="checkbox" id="seamless-toggle"><span>Seamless</span></label>
-      </div>
 
       <details class="card collapsible" id="look-card">
         <summary>
@@ -101,22 +90,19 @@
           <span class="summary-meta" id="look-current"></span>
         </summary>
         <div class="card-body">
-          <p class="about">Pick a material to start from, or upload a photo of the look you want and get a suggested preset. Click a selected preset again to undo it.</p>
+          <p class="about">Pick a material to start from, or upload a photo of the look you want to make a custom preset matched to it. Click a selected preset again to undo it.</p>
           <div class="chips" id="presets" role="group" aria-label="Material presets"></div>
           <p class="about small" id="preset-about" hidden></p>
           <input type="file" id="ref-input" accept="image/*" hidden>
-          <button class="btn soft wide" id="ref-add" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>Suggest a preset from a photo</button>
+          <button class="btn soft wide" id="ref-add" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>Or upload your reference</button>
           <div class="ref-result" id="ref-result" hidden>
             <canvas id="ref-thumb" width="144" height="144" aria-hidden="true"></canvas>
             <div class="ref-text">
               <strong id="ref-title"></strong>
               <ul id="ref-notes"></ul>
+              <p class="ref-values" id="ref-values"></p>
             </div>
-            <div class="ref-actions">
-              <button class="btn primary" id="ref-apply" type="button">Apply suggestion</button>
-              <button class="btn secondary" id="ref-change" type="button">Change photo</button>
-              <button class="icon" id="ref-remove" type="button" aria-label="Remove reference" data-tip="Remove reference"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-            </div>
+            <button class="icon" id="ref-remove" type="button" aria-label="Delete this custom preset" data-tip="Delete preset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
             <p class="about small" id="ref-alt"></p>
           </div>
         </div>
@@ -140,6 +126,10 @@
             <button type="button" data-size="2048">2K</button>
             <button type="button" data-size="4096">4K</button>
           </div>
+        </div>
+        <div class="field">
+          <label class="check"><input type="checkbox" id="seamless-toggle"><span>Seamless</span></label>
+          <p class="about small">For textures that repeat: the maps wrap around the edges so there are no seams.</p>
         </div>
         <button class="btn primary wide" id="download-map" type="button">Download normal</button>
         <button class="btn secondary wide" id="download-all" type="button">Download all maps (.zip)</button>

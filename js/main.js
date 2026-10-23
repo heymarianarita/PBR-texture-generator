@@ -5,7 +5,7 @@ import { createPipeline, runPipeline } from './pipeline.js';
 import { downloadPng, downloadZip, makeGltf } from './export.js';
 import { SAMPLE } from './samples.js';
 import { PRESETS, PRESET_KEYS, presetById } from './presets.js';
-import { analyseReference, suggest } from './reference.js';
+import { analyseReference } from './reference.js';
 
 const PREVIEW_EDGE = 1024;
 const STORAGE_KEY = 'pbr-texture-generator:settings:v2';
@@ -74,8 +74,14 @@ const HEIGHT_CONTROLS = [
 
 const MAPS = [
   {
-    id: 'basecolor', label: 'Source', file: 'basecolor',
-    about: 'Your photo, used as the base colour.',
+    // Not a map of its own: the whole material in the 3D preview.
+    id: 'pbr', label: 'PBR', virtual: true,
+    about: 'The full material as Second Life shows it: diffuse, normal and ORM together. Drag on the preview to move the light, scroll to zoom.',
+    controls: [],
+  },
+  {
+    id: 'basecolor', label: 'Diffuse', file: 'basecolor',
+    about: 'Your photo, used as the base colour (Base Color in Firestorm).',
     controls: [],
   },
   {
@@ -131,7 +137,12 @@ function loadSettings() {
     }
   } catch { /* storage unavailable: use defaults */ }
   if (!mapById[s.selected]) s.selected = DEFAULTS.selected;
-  if (s.preset && !presetById[s.preset]) s.preset = '';
+  // The 3D view and the PBR tile are the same thing.
+  if (s.view === '3d') s.selected = 'pbr';
+  else if (s.selected === 'pbr') s.view = '3d';
+  // Custom presets (from photos) only last a session; the id is kept so the
+  // match can still be undone after a reload.
+  if (s.preset && !s.preset.startsWith('custom-') && !presetById[s.preset]) s.preset = '';
   return s;
 }
 
@@ -147,7 +158,6 @@ const state = {
   source: null,       // full-resolution canvas
   name: 'texture',
   imageId: 0,
-  reference: null,    // { canvas, name, analysis } of the look to match
 };
 const canvases = {
   basecolor: null, // the preview-size source canvas
@@ -266,6 +276,8 @@ function showMapSettings() {
   $('#map-controls').replaceChildren(...els);
   const name = map.label === map.label.toUpperCase() ? map.label : map.label.toLowerCase();
   $('#download-map').textContent = `Download ${name}`;
+  // The PBR tile is the whole material: download it with the buttons below.
+  $('#download-map').hidden = !!map.virtual;
   for (const [id, t] of tiles) t.button.setAttribute('aria-pressed', String(id === map.id));
   drawFlat();
 }
@@ -282,13 +294,12 @@ function buildTiles() {
     label.textContent = map.short || map.label;
     if (map.short) button.title = map.label;
     button.append(thumb, label);
-    // Picking a map means "show me this map": the 3D view shows the combined
-    // material, so switch the preview to Flat. The 3D button switches back.
+    // Picking a map shows it in the Flat view; the PBR tile is the 3D view.
     button.addEventListener('click', () => {
       settings.selected = map.id;
-      if (settings.view !== 'flat') {
-        settings.view = 'flat';
-        showViewSwitch?.();
+      const view = map.id === 'pbr' ? '3d' : 'flat';
+      if (settings.view !== view) {
+        settings.view = view;
         applyView();
       }
       saveSettings();
@@ -308,6 +319,30 @@ function drawThumb(id) {
   const side = Math.min(src.width, src.height);
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(src, (src.width - side) / 2, (src.height - side) / 2, side, side, 0, 0, t.thumb.width, t.thumb.height);
+}
+
+// The PBR tile's thumbnail: the diffuse lit from the top left through the
+// normal map, a small stand-in for the 3D view.
+function drawPbrThumb() {
+  const t = tiles.get('pbr');
+  if (!t || !canvases.basecolor || !canvases.normal.width) return;
+  const size = t.thumb.width;
+  const scratch = (src) => {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    drawCover(src, c);
+    return c.getContext('2d').getImageData(0, 0, size, size);
+  };
+  const base = scratch(canvases.basecolor), normal = scratch(canvases.normal);
+  const out = new ImageData(size, size);
+  const l = [-0.5, 0.5, 0.7071]; // light direction (x right, y up, z out)
+  for (let i = 0; i < base.data.length; i += 4) {
+    const nx = normal.data[i] / 127.5 - 1, ny = normal.data[i + 1] / 127.5 - 1, nz = normal.data[i + 2] / 127.5 - 1;
+    const lit = 0.3 + 0.9 * Math.max(0, nx * l[0] + ny * l[1] + nz * l[2]);
+    for (let c = 0; c < 3; c++) out.data[i + c] = base.data[i + c] * lit;
+    out.data[i + 3] = 255;
+  }
+  t.thumb.getContext('2d').putImageData(out, 0, 0);
 }
 
 // The Flat view shows the selected map at preview resolution.
@@ -347,45 +382,90 @@ function recompute() {
   preview?.refresh({ normal: r.changed.normal, orm: r.changed.orm });
 
   for (const id of redrawn) drawThumb(id);
+  if (redrawn.includes('normal')) drawPbrThumb();
   if (redrawn.includes(settings.selected)) drawFlat();
 }
 
-// ---------- Material presets and reference ----------
-const presetButtons = new Map(); // preset id -> button
+// ---------- Material presets and custom presets from photos ----------
+// Uploading a reference photo makes a custom preset matched to it. Custom
+// presets sit with the built-in ones but only last for the session.
+const presetButtons = new Map(); // preset id -> chip
+const customs = new Map();       // custom preset id -> { label, canvas, analysis }
+let customCount = 0;
+const isCustom = (id) => id.startsWith('custom-');
+const presetLabel = (id) => (isCustom(id) ? customs.get(id)?.label || 'Custom' : presetById[id].label);
+const presetValues = (id) => (isCustom(id) ? customs.get(id).analysis.settings : presetById[id].settings);
+
+// Draw `src` into `dest`, cropped to fill it.
+function drawCover(src, dest) {
+  const ctx = dest.getContext('2d');
+  const k = Math.max(dest.width / src.width, dest.height / src.height);
+  const w = src.width * k, h = src.height * k;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, (dest.width - w) / 2, (dest.height - h) / 2, w, h);
+}
+
+function addPresetChip(id, label, photo) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'chip';
+  if (photo) {
+    const thumb = document.createElement('canvas');
+    thumb.width = thumb.height = 40;
+    drawCover(photo, thumb);
+    b.classList.add('has-thumb');
+    b.append(thumb);
+  }
+  b.append(label);
+  b.addEventListener('click', () => togglePreset(id));
+  $('#presets').append(b);
+  presetButtons.set(id, b);
+}
+
+// Clicking a preset applies it; clicking the selected one again undoes it.
+function togglePreset(id) {
+  const label = presetLabel(id);
+  if (settings.preset === id) {
+    removePreset();
+    toast(`${label} removed. Your earlier settings are back.`);
+  } else {
+    applyPreset(id, presetValues(id));
+    toast(`${label} applied. Click it again to undo.`);
+  }
+}
 
 function buildPresets() {
-  const host = $('#presets');
-  for (const p of PRESETS) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'chip';
-    b.textContent = p.label;
-    b.addEventListener('click', () => {
-      if (settings.preset === p.id) {
-        removePreset();
-        toast(`${p.label} removed. Your earlier settings are back.`);
-      } else {
-        applyPreset(p.id);
-        toast(`${p.label} applied. Click it again to undo.`);
-      }
-    });
-    host.append(b);
-    presetButtons.set(p.id, b);
-  }
+  for (const p of PRESETS) addPresetChip(p.id, p.label);
   renderPresets();
 }
 
 function renderPresets() {
   for (const [id, b] of presetButtons) b.setAttribute('aria-pressed', String(id === settings.preset));
-  $('#look-current').textContent = settings.preset ? presetById[settings.preset].label : '';
+  $('#look-current').textContent = settings.preset ? presetLabel(settings.preset) : '';
   const about = $('#preset-about');
-  about.hidden = !settings.preset;
-  about.textContent = settings.preset ? presetById[settings.preset].about : '';
+  about.replaceChildren();
+  const custom = !!settings.preset && isCustom(settings.preset);
+  // A custom preset is described in its card. After a reload its photo is
+  // gone, so this line keeps a way to undo it.
+  about.hidden = !settings.preset || (custom && customs.has(settings.preset));
+  if (custom && !customs.has(settings.preset)) {
+    const undo = document.createElement('button');
+    undo.type = 'button';
+    undo.textContent = 'Undo';
+    undo.addEventListener('click', () => {
+      removePreset();
+      toast('Undone. Your earlier settings are back.');
+    });
+    about.append('These settings were matched to a photo. ', undo);
+  } else if (settings.preset && !custom) {
+    about.textContent = presetById[settings.preset].about;
+  }
+  renderReference();
 }
 
-// Apply a preset's settings, or `values` (a preset adjusted to a reference).
-// The first material picked remembers the settings it replaces.
-function applyPreset(id, values = presetById[id].settings) {
+// Apply a preset's settings. The first preset picked remembers the settings
+// it replaces, so deselecting can put them back.
+function applyPreset(id, values) {
   if (!settings.preset) {
     settings.beforePreset = JSON.stringify(Object.fromEntries(PRESET_KEYS.map((k) => [k, settings[k]])));
   }
@@ -396,7 +476,7 @@ function applyPreset(id, values = presetById[id].settings) {
   onSettingChanged('preset');
 }
 
-// Deselect the material: put back the settings from before it was picked.
+// Deselect the preset: put back the settings from before it was picked.
 function removePreset() {
   let before = {};
   try { before = JSON.parse(settings.beforePreset || '{}'); } catch { /* fall back to defaults */ }
@@ -408,13 +488,19 @@ function removePreset() {
   onSettingChanged('preset');
 }
 
-async function loadReference(file) {
-  setBusy('Reading the reference…');
+// Make a custom preset matched to a reference photo, and apply it.
+async function addCustomFromPhoto(file) {
+  setBusy('Matching your photo…');
   await nextPaint();
   try {
     const canvas = await decodeFile(file);
-    state.reference = { canvas, name: file.name || 'reference', analysis: analyseReference(canvas) };
-    renderReference();
+    const n = ++customCount;
+    const id = `custom-${n}`;
+    const label = n === 1 ? 'Custom' : `Custom ${n}`;
+    customs.set(id, { label, canvas, analysis: analyseReference(canvas) });
+    addPresetChip(id, label, canvas);
+    applyPreset(id, presetValues(id));
+    toast(`${label} preset made from your photo. Click it again to undo.`);
   } catch (err) {
     toast(err.message);
   } finally {
@@ -422,47 +508,40 @@ async function loadReference(file) {
   }
 }
 
-// Draw `src` into `dest`, cropped to fill it.
-function drawCover(src, dest) {
-  const ctx = dest.getContext('2d');
-  const k = Math.max(dest.width / src.width, dest.height / src.height);
-  const w = src.width * k, h = src.height * k;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(src, (dest.width - w) / 2, (dest.height - h) / 2, w, h);
+function deleteCustom(id) {
+  const label = presetLabel(id);
+  if (settings.preset === id) removePreset();
+  customs.delete(id);
+  presetButtons.get(id)?.remove();
+  presetButtons.delete(id);
+  renderPresets();
+  toast(`${label} deleted.`);
 }
 
+// The card under the presets describes the selected custom preset.
 function renderReference() {
-  const ref = state.reference;
+  const id = settings.preset;
+  const ref = id && isCustom(id) ? customs.get(id) : null;
   $('#ref-result').hidden = !ref;
-  $('#ref-add').hidden = !!ref;
-  $('#ref-pip').hidden = !ref;
   if (!ref) return;
   const { analysis } = ref;
   drawCover(ref.canvas, $('#ref-thumb'));
-  const pip = $('#ref-pip-canvas');
-  const k = Math.min(1, 400 / Math.max(ref.canvas.width, ref.canvas.height));
-  pip.width = Math.round(ref.canvas.width * k);
-  pip.height = Math.round(ref.canvas.height * k);
-  drawCover(ref.canvas, pip);
 
-  $('#ref-title').textContent = `Looks like ${presetById[analysis.preset].label.toLowerCase()}`;
+  $('#ref-title').textContent = `${ref.label}: matched to your photo`;
   $('#ref-notes').replaceChildren(...analysis.notes.map((t) => Object.assign(document.createElement('li'), { textContent: t })));
+  const v = analysis.settings;
+  $('#ref-values').textContent =
+    `Roughness ${v.roughBase.toFixed(2)} · metallic ${v.metallic} · details ${v.coarse}/${v.medium}/${v.fine} (large/medium/fine) · strength ${v.strength} · occlusion ${v.aoStrength}`;
   const alt = $('#ref-alt');
-  alt.replaceChildren();
-  if (analysis.alternatives.length) {
-    alt.append('Also close: ');
-    analysis.alternatives.forEach((id, i) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = presetById[id].label;
-      b.addEventListener('click', () => {
-        applyPreset(id, suggest(id, analysis.measurements));
-        toast(`${presetById[id].label} applied, adjusted to your reference.`);
-      });
-      if (i) alt.append(', ');
-      alt.append(b);
-    });
-  }
+  alt.replaceChildren('Closest presets: ');
+  analysis.closest.forEach((pid, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = presetById[pid].label;
+    b.addEventListener('click', () => togglePreset(pid));
+    if (i) alt.append(', ');
+    alt.append(b);
+  });
 }
 
 // ---------- Loading ----------
@@ -543,7 +622,7 @@ async function download(kind) {
       await downloadPng(mapCanvas(settings.selected, job), fileName(settings.selected, job.s));
     } else {
       const files = {};
-      for (const { id } of MAPS) files[fileName(id, job.s)] = mapCanvas(id, job);
+      for (const { id, virtual } of MAPS) if (!virtual) files[fileName(id, job.s)] = mapCanvas(id, job);
       setBusy('Zipping…');
       await nextPaint();
       await downloadZip(files, `${baseName()}_pbr.zip`);
@@ -624,7 +703,6 @@ function updateHint() {
   $('#viewport-hint').textContent = `${drag} · ${zoom}`;
 }
 
-let showViewSwitch = null; // refreshes the 3D / Flat buttons when the view changes from elsewhere
 function applyView() {
   const flat = settings.view === 'flat';
   $('#viewport').classList.toggle('flat-mode', flat);
@@ -749,7 +827,6 @@ function wireEvents() {
     preview?.setOptions({ tile: settings.tile });
   });
 
-  showViewSwitch = bindSwitch('#view-switch', 'view', 'view', applyView);
   bindSwitch('#shape-switch', 'shape', 'shape', () => {
     preview?.setOptions({ shape: settings.shape });
     updateHint();
@@ -783,19 +860,12 @@ function wireEvents() {
 
   const refInput = $('#ref-input');
   refInput.addEventListener('change', () => {
-    if (refInput.files[0]) loadReference(refInput.files[0]);
+    if (refInput.files[0]) addCustomFromPhoto(refInput.files[0]);
     refInput.value = '';
   });
   $('#ref-add').addEventListener('click', () => refInput.click());
-  $('#ref-change').addEventListener('click', () => refInput.click());
   $('#ref-remove').addEventListener('click', () => {
-    state.reference = null;
-    renderReference();
-  });
-  $('#ref-apply').addEventListener('click', () => {
-    const { analysis } = state.reference;
-    applyPreset(analysis.preset, analysis.settings);
-    toast(`${presetById[analysis.preset].label} applied, adjusted to your reference. Compare it in the preview.`);
+    if (settings.preset && isCustom(settings.preset)) deleteCustom(settings.preset);
   });
 
   $('#reset').addEventListener('click', () => {

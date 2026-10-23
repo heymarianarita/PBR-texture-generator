@@ -187,27 +187,36 @@ function describe(f, presetId) {
   return notes;
 }
 
-// A preset adjusted to the photo: start from the preset, then lean halfway
-// towards the roughness and detail sizes the photo shows.
-export function suggest(presetId, f) {
+const round = (v, step) => Math.round(v / step) * step;
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+// Custom settings matched to the photo. Everything a photo shows is set from
+// the measurements: roughness, metallic, the size of the bumps, how deep they
+// are and how much occlusion they get. The closest preset only fills in what
+// a photo can't show (roughness contrast, height contrast, smoothing).
+export function matchSettings(presetId, f) {
   const base = presetById[presetId].settings;
-  const measuredRough = 0.95 - 0.8 * f.shine;
   const weight = (frac) => Math.min(2, frac * 3); // fractions sum to 1, sliders default to about 1
+  const band = [['fine', f.fine], ['medium', f.medium], ['coarse', f.coarse]].sort((a, b) => b[1] - a[1])[0][0];
   return {
     ...base,
-    roughBase: +mix(base.roughBase, measuredRough, 0.5).toFixed(2),
-    coarse: +mix(base.coarse, weight(f.coarse), 0.5).toFixed(2),
-    medium: +mix(base.medium, weight(f.medium), 0.5).toFixed(2),
-    fine: +mix(base.fine, weight(f.fine), 0.5).toFixed(2),
+    roughBase: +round(clamp(0.95 - 0.8 * f.shine, 0.08, 0.97), 0.01).toFixed(2),
+    metallic: presetId === 'metal' ? 1 : 0,
+    coarse: +round(weight(f.coarse), 0.05).toFixed(2),
+    medium: +round(weight(f.medium), 0.05).toFixed(2),
+    fine: +round(weight(f.fine), 0.05).toFixed(2),
+    strength: +round(clamp(mix(base.strength, 1 + f.texture * 15, 0.5), 0.8, 4), 0.1).toFixed(1),
+    aoStrength: +round(clamp(mix(base.aoStrength, 0.4 + f.texture * 8, 0.5), 0.3, 2), 0.05).toFixed(2),
+    aoRadius: { fine: 4, medium: 8, coarse: 12 }[band],
   };
 }
 
-// Analyse a reference photo. Returns the best preset, close alternatives, the
-// suggested settings and plain-language reasons.
+// Analyse a reference photo. Returns custom settings matched to it, the
+// closest presets (best first) and plain-language reasons.
 export function analyseReference(canvas) {
   const f = measure(canvas);
   const ranked = Object.entries(scores(f)).sort((a, b) => b[1] - a[1]);
   const best = ranked[0][1] > 0.12 ? ranked[0][0] : f.shine > 0.5 ? 'plastic' : f.shine > 0.25 ? 'leather' : 'fabric';
-  const alternatives = ranked.map(([id]) => id).filter((id) => id !== best).slice(0, 2);
-  return { preset: best, alternatives, settings: suggest(best, f), notes: describe(f, best), measurements: f };
+  const closest = [best, ...ranked.map(([id]) => id).filter((id) => id !== best)].slice(0, 3);
+  return { closest, settings: matchSettings(best, f), notes: describe(f, best), measurements: f };
 }
