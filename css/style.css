@@ -141,6 +141,11 @@ button, input, select { font: inherit; color: inherit; }
 .btn.secondary { background: var(--background); color: var(--foreground); border-color: var(--input); box-shadow: var(--shadow-xs); }
 .btn.secondary:hover { background: var(--accent); }
 .btn.wide { width: 100%; }
+/* Soft: a filled, quieter button that still reads as one inside a card. */
+.btn.soft { background: var(--secondary); color: var(--secondary-foreground); }
+.btn.soft:hover { background: var(--accent); color: var(--accent-foreground); }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.btn[hidden] { display: none; }
 .btn:disabled { opacity: 0.5; pointer-events: none; }
 
 .link {
@@ -338,7 +343,7 @@ input[type="range"]:focus-visible { border-radius: var(--radius-sm); }
 .source-row { display: flex; justify-content: flex-end; }
 
 /* Map tiles: selectable, so hover = violet ring, selected = ring + tint */
-.tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-2); }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2); }
 .tile {
   appearance: none;
   display: flex;
@@ -358,6 +363,92 @@ input[type="range"]:focus-visible { border-radius: var(--radius-sm); }
 .tile canvas { display: block; width: 100%; aspect-ratio: 1; border-radius: var(--radius-sm); background: var(--secondary); }
 .tile:hover { border-color: var(--ring); box-shadow: var(--select-ring); color: var(--foreground); }
 .tile[aria-pressed="true"] { border-color: var(--ring); box-shadow: var(--select-ring); background: var(--primary-subtle); color: var(--primary-subtle-foreground); }
+
+/* Material presets: pill chips with the same selection language as the tiles. */
+.chips { display: flex; flex-wrap: wrap; gap: var(--space-1-5); }
+.chip {
+  appearance: none;
+  height: var(--control-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: var(--type-ui);
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease), border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+}
+.chip:hover { border-color: var(--ring); box-shadow: var(--select-ring), var(--shadow-xs); color: var(--foreground); }
+.chip[aria-pressed="true"] { border-color: var(--ring); box-shadow: var(--select-ring), var(--shadow-xs); background: var(--primary-subtle); color: var(--primary-subtle-foreground); }
+
+/* Reference photo: thumbnail, what was found, and actions. */
+.ref-result { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: var(--space-3) var(--space-4); align-items: start; }
+.ref-result[hidden] { display: none; }
+.ref-result canvas { width: 72px; height: 72px; border-radius: var(--radius-md); background: var(--secondary); border: 1px solid var(--border); }
+.ref-text strong { display: block; font: var(--type-ui); font-weight: var(--weight-semibold); }
+.ref-text ul { margin: var(--space-1) 0 0; padding-left: 1.1em; color: var(--muted-foreground); font: var(--type-small); }
+.ref-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--space-2); }
+.ref-actions .btn { flex: 1; }
+.ref-actions .icon { flex: none; display: grid; place-items: center; color: var(--muted-foreground); }
+.ref-actions .icon svg { width: 16px; height: 16px; }
+#ref-alt { grid-column: 1 / -1; }
+#ref-alt:empty { display: none; }
+#ref-alt button { appearance: none; padding: 0; border: 0; background: none; color: var(--link); font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+#ref-alt button:hover { color: var(--link-hover); }
+
+/* The reference stays in the preview's corner for side-by-side comparison. */
+.ref-pip {
+  position: absolute;
+  left: var(--space-3);
+  top: var(--space-3);
+  margin: 0;
+  width: min(26%, 200px);
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+.ref-pip[hidden] { display: none; }
+.ref-pip canvas { display: block; width: 100%; height: auto; border-radius: var(--radius-md); }
+.ref-pip figcaption { padding: var(--space-1) var(--space-1) 0; color: var(--muted-foreground); font: var(--type-caption); }
+
+/* Collapsible card: the header is the toggle; a chevron points down when closed. */
+.card.collapsible > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  list-style: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.card.collapsible > summary::-webkit-details-marker { display: none; }
+.card.collapsible > summary .summary-meta { margin-left: auto; color: var(--muted-foreground); font: var(--type-small); }
+.card.collapsible > summary .summary-meta:empty { display: none; }
+.card.collapsible > summary::after {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  background: var(--muted-foreground);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform var(--duration) var(--ease);
+}
+.card.collapsible > summary:has(.summary-meta:not(:empty))::after { margin-left: 0; }
+.card.collapsible > summary:hover::after { background: var(--foreground); }
+.card.collapsible[open] > summary::after { transform: rotate(180deg); }
+/* Closed: just the header row. */
+/* <details> wraps its content in its own box, so the card's grid gap can't
+   reach it; the body sets the same spacing itself. */
+.card.collapsible { display: block; }
+.card.collapsible[open] > summary { margin-bottom: var(--space-4); }
+.card-body { display: grid; gap: var(--space-4); }
+.card.collapsible:not([open]) { padding-block: var(--space-4); }
+.card.collapsible:not([open]) > summary h2 { font: var(--type-ui); font-weight: var(--weight-semibold); }
 
 /* Cards (MDS Card) */
 .card {

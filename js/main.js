@@ -4,6 +4,8 @@ import { decodeFile, readPixels, grayToCanvas, rgbToCanvas } from './image-io.js
 import { createPipeline, runPipeline } from './pipeline.js';
 import { downloadPng, downloadZip, makeGltf } from './export.js';
 import { SAMPLE } from './samples.js';
+import { PRESETS, PRESET_KEYS, presetById } from './presets.js';
+import { analyseReference, suggest } from './reference.js';
 
 const PREVIEW_EDGE = 1024;
 const STORAGE_KEY = 'pbr-texture-generator:settings:v2';
@@ -37,6 +39,11 @@ const DEFAULTS = Object.freeze({
   metallic: 0,
   aoStrength: 1,
   aoRadius: 8,
+  // Material preset last applied ('' when none, or after a manual change)
+  preset: '',
+  // The preset-controlled settings from before a material was picked (JSON),
+  // restored when the material is deselected
+  beforePreset: '',
   // Viewer and download
   size: '2048',
   view: '3d',
@@ -53,6 +60,17 @@ const KEEP_ON_RESET = ['size', 'view', 'shape', 'tile', 'selected'];
 const ROUGHNESS = { key: 'roughBase', type: 'range', label: 'Roughness', min: 0, max: 1, step: 0.01, ends: ['Shiny', 'Matte'] };
 const ROUGH_CONTRAST = { key: 'roughContrast', type: 'range', label: 'Roughness contrast', min: 0, max: 3, step: 0.01 };
 const ROUGH_INVERT = { key: 'roughInvert', type: 'toggle', label: 'Invert roughness' };
+// The height map isn't a download (Second Life PBR has no height slot), but the
+// normal map and occlusion are built from it, so its settings live in both
+// tiles' Advanced sections.
+const HEIGHT_CONTROLS = [
+  { key: 'contrast', type: 'range', label: 'Height contrast', min: 0, max: 3, step: 0.01,
+    hint: 'How strongly light and dark in the photo turn into high and low.' },
+  { key: 'blur', type: 'range', label: 'Smooth', min: 0, max: 10, step: 0.1, unit: 'px',
+    hint: 'Softens noise in the photo before bumps are made from it.' },
+  { key: 'highpass', type: 'range', label: 'Even out lighting', min: 0, max: 200, step: 1, unit: 'px', zero: 'Off',
+    hint: 'Removes shadows and bright patches from uneven lighting in the photo.' },
+];
 
 const MAPS = [
   {
@@ -70,6 +88,7 @@ const MAPS = [
     ],
     advanced: [
       { key: 'strength', type: 'range', label: 'Strength', min: 0, max: 10, step: 0.1 },
+      ...HEIGHT_CONTROLS,
       { key: 'invert', type: 'toggle', label: 'Invert', hint: 'Use when bumps look like dents.' },
       { key: 'flipGreen', type: 'segmented', label: 'Format', options: [[false, 'OpenGL'], [true, 'DirectX']],
         hint: 'OpenGL for Blender, Unity, Godot and Second Life. DirectX for Unreal.' },
@@ -80,19 +99,6 @@ const MAPS = [
     about: 'Bright is shiny, dark is matte. It is the inverse of the roughness in the ORM map, so the two stay in sync.',
     controls: [ROUGHNESS],
     advanced: [{ ...ROUGH_CONTRAST, label: 'Contrast' }, { ...ROUGH_INVERT, label: 'Invert' }],
-  },
-  {
-    id: 'height', label: 'Height', file: 'height',
-    about: 'Light is high, dark is low. The normal map and occlusion are built from it.',
-    controls: [
-      { key: 'contrast', type: 'range', label: 'Contrast', min: 0, max: 3, step: 0.01 },
-      { key: 'blur', type: 'range', label: 'Smooth', min: 0, max: 10, step: 0.1, unit: 'px' },
-    ],
-    advanced: [
-      { key: 'highpass', type: 'range', label: 'Even out lighting', min: 0, max: 200, step: 1, unit: 'px', zero: 'Off',
-        hint: 'Removes shadows and bright patches from uneven lighting in the photo.' },
-      { key: 'invert', type: 'toggle', label: 'Invert' },
-    ],
   },
   {
     id: 'orm', label: 'ORM', file: 'orm',
@@ -107,6 +113,7 @@ const MAPS = [
       { key: 'aoRadius', type: 'range', label: 'Occlusion spread', min: 1, max: 40, step: 1, unit: 'px' },
       ROUGH_CONTRAST,
       ROUGH_INVERT,
+      ...HEIGHT_CONTROLS,
     ],
   },
 ];
@@ -124,6 +131,7 @@ function loadSettings() {
     }
   } catch { /* storage unavailable: use defaults */ }
   if (!mapById[s.selected]) s.selected = DEFAULTS.selected;
+  if (s.preset && !presetById[s.preset]) s.preset = '';
   return s;
 }
 
@@ -139,12 +147,12 @@ const state = {
   source: null,       // full-resolution canvas
   name: 'texture',
   imageId: 0,
+  reference: null,    // { canvas, name, analysis } of the look to match
 };
 const canvases = {
   basecolor: null, // the preview-size source canvas
   normal: document.createElement('canvas'),
   specular: document.createElement('canvas'),
-  height: document.createElement('canvas'),
   orm: document.createElement('canvas'),   // R occlusion, G roughness, B metallic; also drives the 3D preview
 };
 const tiles = new Map(); // map id -> { button, thumb }
@@ -316,6 +324,12 @@ function drawFlat() {
 // ---------- Recompute ----------
 let recomputeTimer = 0;
 function onSettingChanged(key) {
+  // Moving a slider by hand means the settings no longer match a preset.
+  if (settings.preset && PRESET_KEYS.includes(key)) {
+    settings.preset = '';
+    settings.beforePreset = '';
+    renderPresets();
+  }
   saveSettings();
   if (key === 'flipGreen') preview?.setOptions({ flipGreen: settings.flipGreen });
   clearTimeout(recomputeTimer);
@@ -327,7 +341,6 @@ function recompute() {
   const { w, h } = state.img;
   const r = pipeline(state.img, settings, 1);
   const redrawn = [];
-  if (r.changed.height) { grayToCanvas(r.height, w, h, canvases.height); redrawn.push('height'); }
   if (r.changed.normal) { rgbToCanvas(r.normal, w, h, canvases.normal); redrawn.push('normal'); }
   if (r.changed.spec) { grayToCanvas(r.spec, w, h, canvases.specular); redrawn.push('specular'); }
   if (r.changed.orm) { rgbToCanvas(r.orm, w, h, canvases.orm); redrawn.push('orm'); }
@@ -335,6 +348,121 @@ function recompute() {
 
   for (const id of redrawn) drawThumb(id);
   if (redrawn.includes(settings.selected)) drawFlat();
+}
+
+// ---------- Material presets and reference ----------
+const presetButtons = new Map(); // preset id -> button
+
+function buildPresets() {
+  const host = $('#presets');
+  for (const p of PRESETS) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.textContent = p.label;
+    b.addEventListener('click', () => {
+      if (settings.preset === p.id) {
+        removePreset();
+        toast(`${p.label} removed. Your earlier settings are back.`);
+      } else {
+        applyPreset(p.id);
+        toast(`${p.label} applied. Click it again to undo.`);
+      }
+    });
+    host.append(b);
+    presetButtons.set(p.id, b);
+  }
+  renderPresets();
+}
+
+function renderPresets() {
+  for (const [id, b] of presetButtons) b.setAttribute('aria-pressed', String(id === settings.preset));
+  $('#look-current').textContent = settings.preset ? presetById[settings.preset].label : '';
+  const about = $('#preset-about');
+  about.hidden = !settings.preset;
+  about.textContent = settings.preset ? presetById[settings.preset].about : '';
+}
+
+// Apply a preset's settings, or `values` (a preset adjusted to a reference).
+// The first material picked remembers the settings it replaces.
+function applyPreset(id, values = presetById[id].settings) {
+  if (!settings.preset) {
+    settings.beforePreset = JSON.stringify(Object.fromEntries(PRESET_KEYS.map((k) => [k, settings[k]])));
+  }
+  Object.assign(settings, values);
+  settings.preset = id;
+  renderPresets();
+  showMapSettings();
+  onSettingChanged('preset');
+}
+
+// Deselect the material: put back the settings from before it was picked.
+function removePreset() {
+  let before = {};
+  try { before = JSON.parse(settings.beforePreset || '{}'); } catch { /* fall back to defaults */ }
+  for (const k of PRESET_KEYS) settings[k] = k in before ? before[k] : DEFAULTS[k];
+  settings.preset = '';
+  settings.beforePreset = '';
+  renderPresets();
+  showMapSettings();
+  onSettingChanged('preset');
+}
+
+async function loadReference(file) {
+  setBusy('Reading the reference…');
+  await nextPaint();
+  try {
+    const canvas = await decodeFile(file);
+    state.reference = { canvas, name: file.name || 'reference', analysis: analyseReference(canvas) };
+    renderReference();
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+// Draw `src` into `dest`, cropped to fill it.
+function drawCover(src, dest) {
+  const ctx = dest.getContext('2d');
+  const k = Math.max(dest.width / src.width, dest.height / src.height);
+  const w = src.width * k, h = src.height * k;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(src, (dest.width - w) / 2, (dest.height - h) / 2, w, h);
+}
+
+function renderReference() {
+  const ref = state.reference;
+  $('#ref-result').hidden = !ref;
+  $('#ref-add').hidden = !!ref;
+  $('#ref-pip').hidden = !ref;
+  if (!ref) return;
+  const { analysis } = ref;
+  drawCover(ref.canvas, $('#ref-thumb'));
+  const pip = $('#ref-pip-canvas');
+  const k = Math.min(1, 400 / Math.max(ref.canvas.width, ref.canvas.height));
+  pip.width = Math.round(ref.canvas.width * k);
+  pip.height = Math.round(ref.canvas.height * k);
+  drawCover(ref.canvas, pip);
+
+  $('#ref-title').textContent = `Looks like ${presetById[analysis.preset].label.toLowerCase()}`;
+  $('#ref-notes').replaceChildren(...analysis.notes.map((t) => Object.assign(document.createElement('li'), { textContent: t })));
+  const alt = $('#ref-alt');
+  alt.replaceChildren();
+  if (analysis.alternatives.length) {
+    alt.append('Also close: ');
+    analysis.alternatives.forEach((id, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = presetById[id].label;
+      b.addEventListener('click', () => {
+        applyPreset(id, suggest(id, analysis.measurements));
+        toast(`${presetById[id].label} applied, adjusted to your reference.`);
+      });
+      if (i) alt.append(', ');
+      alt.append(b);
+    });
+  }
 }
 
 // ---------- Loading ----------
@@ -394,7 +522,6 @@ function mapCanvas(id, { img, r }) {
     case 'basecolor': return img.canvas;
     case 'normal': return rgbToCanvas(r.normal, w, h);
     case 'specular': return grayToCanvas(r.spec, w, h);
-    case 'height': return grayToCanvas(r.height, w, h);
     case 'orm': return rgbToCanvas(r.orm, w, h);
   }
   return null;
@@ -654,12 +781,30 @@ function wireEvents() {
     if (currentTheme() === 'system') applyTheme('system');
   });
 
+  const refInput = $('#ref-input');
+  refInput.addEventListener('change', () => {
+    if (refInput.files[0]) loadReference(refInput.files[0]);
+    refInput.value = '';
+  });
+  $('#ref-add').addEventListener('click', () => refInput.click());
+  $('#ref-change').addEventListener('click', () => refInput.click());
+  $('#ref-remove').addEventListener('click', () => {
+    state.reference = null;
+    renderReference();
+  });
+  $('#ref-apply').addEventListener('click', () => {
+    const { analysis } = state.reference;
+    applyPreset(analysis.preset, analysis.settings);
+    toast(`${presetById[analysis.preset].label} applied, adjusted to your reference. Compare it in the preview.`);
+  });
+
   $('#reset').addEventListener('click', () => {
     for (const [k, v] of Object.entries(DEFAULTS)) {
       if (!KEEP_ON_RESET.includes(k)) settings[k] = v;
     }
     seamless.checked = settings.tileable;
     preview?.setOptions({ flipGreen: settings.flipGreen });
+    renderPresets();
     showMapSettings();
     onSettingChanged('reset');
     toast(state.img ? 'Settings reset. Your image is kept.' : 'Settings reset.');
@@ -702,6 +847,7 @@ async function initPreview() {
 // ---------- Start ----------
 updateHint();
 buildTiles();
+buildPresets();
 wireEvents();
 applyTheme(currentTheme());
 showMapSettings();

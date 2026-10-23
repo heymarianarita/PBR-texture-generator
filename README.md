@@ -1,22 +1,26 @@
 # PBR Texture Generator
 
-Turn a photo into PBR texture maps, right in the browser: normal, specular, height and ORM (occlusion, roughness, metallic), alongside your source photo. Nothing is uploaded: all processing happens on your device.
+Turn a photo into PBR texture maps, right in the browser: normal, specular and ORM (occlusion, roughness, metallic), alongside your source photo. A height map is made internally to build the normal map and occlusion, but it isn't a download, since Second Life PBR has no height slot. Nothing is uploaded: all processing happens on your device.
 
 <!-- Add screenshots here once deployed, e.g. ![Screenshot](assets/screenshot.png) -->
 
 ## How to use it
 
 1. Drop an image, click to upload, or paste one. A brick texture is shown until you do.
-2. Click a map tile to see that map and its essential settings. Everything else is under **Advanced**, which starts collapsed.
+2. Set the look under **Presets** (collapsed by default; its header shows the preset in use):
+   - Pick a preset: Velvet & bouclé, Fabric, Leather, Wood, Stone, Plaster, Metal, Plastic or Polished. Each sets the normal detail, roughness, occlusion and metallic values for how that material reads in Second Life. Click the selected preset again to undo it and get your earlier settings back.
+   - Or choose **Suggest a preset from a photo** and add a photo of the look you want. The site measures how shiny it is, how big its bumps are and whether it has a grain, suggests the closest preset adjusted to the photo, and lists close alternatives. **Apply suggestion** uses it. The reference stays in the corner of the preview so you can compare.
+   - Second Life PBR has no sheen, so soft fabrics like velvet are faked with very matte roughness, fuzzy fine bumps and soft occlusion.
+   - The analysis runs in your browser and works best on a photo cropped close to the material. It's a starting point: tweak the maps afterwards.
+3. Click a map tile to see that map and its essential settings. Everything else is under **Advanced**, which starts collapsed.
    - **Source:** your photo, used as the base colour. No settings.
-   - **Normal:** large, medium and fine details. Advanced: strength, invert, OpenGL or DirectX.
+   - **Normal:** large, medium and fine details. Advanced: strength, height contrast, smooth, even out lighting, invert, OpenGL or DirectX.
    - **Specular:** roughness. Advanced: contrast, invert. Specular is the inverse of the ORM roughness, so they share these settings.
-   - **Height:** contrast, smooth. Advanced: even out lighting, invert.
-   - **ORM:** occlusion, roughness, metallic. Advanced: occlusion spread, roughness contrast, invert roughness. Red is occlusion, green is roughness, blue is metallic.
-3. Check the result in the **3D** preview (plane or sphere, with 2×2 tiling to spot seams), or switch to **Flat** to see the selected map.
+   - **ORM:** occlusion, roughness, metallic. Advanced: occlusion spread, roughness contrast, invert roughness, height contrast, smooth, even out lighting. Red is occlusion, green is roughness, blue is metallic.
+4. Check the result in the **3D** preview (plane or sphere, with 2×2 tiling to spot seams), or switch to **Flat** to see the selected map.
    - The light stays still. On the plane, drag to move the light. On the sphere, drag to rotate it.
    - Scroll or pinch to zoom. Double-click to reset.
-4. Pick a size (512, 1K, 2K or 4K) and download the selected map, all maps as a `.zip`, or a Second Life material.
+5. Pick a size (512, 1K, 2K or 4K) and download the selected map, all maps as a `.zip`, or a Second Life material.
 
 Turn on **Seamless** for tiling textures so the filters wrap around the edges. The interface uses MDS (Mariana's Design System): light by default, dark when your system is, and a Light / Dark / System switch in the header.
 
@@ -39,6 +43,8 @@ js/
   normal.js      Sobel/Scharr, multi-scale detail, OpenGL/DirectX
   specular.js    roughness from brightness (specular = 1 − roughness)
   orm.js         ambient occlusion and ORM packing
+  presets.js     material presets tuned for Second Life
+  reference.js   reads a reference photo and suggests a preset and settings
   pipeline.js    runs the stages, caching unchanged ones for the preview
   preview.js     three.js scene, draggable light, zoom
   export.js      PNG downloads, zip bundle and .gltf material
